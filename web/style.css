@@ -1,38 +1,36 @@
 /* ===================================
    Variáveis do tema
    ===================================
-   Ficam aqui para que cada cor e medida tenha um único lugar de ajuste.
-   As cores seguem a referência CardChase: creme, branco quente, amarelo
-   e tinta quase preta. */
+   Visual sóbrio, no estilo do livro "Storytelling com Dados" (Knaflic):
+   tudo em cinza e uma única cor de destaque (laranja) para o que importa.
+   Cada cor e medida tem um único lugar de ajuste. */
 
 :root {
-    --creme-claro: #f6f5f1;
-    --creme-amarelado: #f6e9b4;
-    --mesa: #fbf7e9;
-    --papel: #fffdf7;
-    --papel-afundado: #f6f1e2;
+    --fundo: #f7f7f8;
+    --cartao: #ffffff;
+    --borda: #e5e7eb;
+    --grade: #f3f4f6;
 
-    --tinta: #1c1b18;
-    --tinta-suave: #5f5a4c;
-    --tinta-apagada: #6f6a5b;
+    --texto: #1f2937;
+    --texto-suave: #6b7280;
 
-    --ouro: #ffd83d;
-    --ouro-escuro: #8a6a00;
+    /* Cores dos dados: as mesmas usadas nos gráficos (script.js) */
+    --destaque: #e8710a;
+    --contexto: #9ca3af;
+    --contexto-claro: #d1d5db;
 
-    --sobe-fundo: #d8f5e3;
-    --sobe-texto: #0b6b3a;
-    --desce-fundo: #fde1df;
-    --desce-texto: #a61b14;
+    --sobe-texto: #15803d;
+    --desce-texto: #b91c1c;
 
-    --linha: rgba(28, 27, 24, 0.09);
-    --sombra-painel: 0 0 0 1px rgba(28, 27, 24, 0.04),
-                     0 2px 4px rgba(90, 75, 20, 0.04),
-                     0 10px 24px rgba(90, 75, 20, 0.07);
+    --raio: 8px;
 
-    --raio-mesa: 40px;
-    --raio-painel: 24px;
-    --raio-campo: 12px;
-    --raio-pilula: 999px;
+    /* Escala única de fontes: 12 / 14 / 16 / 20 / 28 / 40 px */
+    --f-12: 12px;
+    --f-14: 14px;
+    --f-16: 16px;
+    --f-20: 20px;
+    --f-28: 28px;
+    --f-40: 40px;
 
     /* Espaçamento em múltiplos de 4px */
     --espaco-1: 4px;
@@ -57,13 +55,10 @@
 
 body {
     margin: 0;
-    min-height: 100vh;
-    padding: var(--espaco-8);
-    background: linear-gradient(120deg, var(--creme-claro) 20%, var(--creme-amarelado) 100%);
-    background-attachment: fixed;
-    color: var(--tinta);
-    font-family: "Poppins", system-ui, sans-serif;
-    font-size: 14px;
+    background: var(--fundo);
+    color: var(--texto);
+    font-family: "Source Sans 3", "Segoe UI", Arial, sans-serif;
+    font-size: var(--f-16);
     line-height: 1.5;
     -webkit-font-smoothing: antialiased;
 }
@@ -73,23 +68,24 @@ h2,
 p,
 dl,
 dd,
-ol {
+ul {
     margin: 0;
     padding: 0;
 }
 
 h1 {
-    font-size: 28px;
+    max-width: 58ch;
+    font-size: var(--f-28);
     font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.2;
+    line-height: 1.25;
     text-wrap: balance;
 }
 
 h2 {
-    font-size: 15px;
+    font-size: var(--f-20);
     font-weight: 600;
-    letter-spacing: -0.01em;
+    line-height: 1.3;
+    text-wrap: balance;
 }
 
 a {
@@ -103,7 +99,7 @@ select {
 }
 
 :focus-visible {
-    outline: 2px solid var(--tinta);
+    outline: 2px solid var(--texto);
     outline-offset: 2px;
 }
 
@@ -112,146 +108,232 @@ select {
    Estrutura da página
    =================================== */
 
-.mesa {
-    max-width: 1440px;
+.pagina {
+    max-width: 1280px;
     margin: 0 auto;
-    padding: var(--espaco-8);
-    background: var(--mesa);
-    border-radius: var(--raio-mesa);
-    box-shadow: 0 24px 60px rgba(90, 75, 20, 0.1);
+    padding: var(--espaco-8) var(--espaco-6) var(--espaco-6);
+}
+
+.cartao {
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
 }
 
 .topo {
     display: flex;
-    flex-wrap: wrap;
-    align-items: center;
+    align-items: flex-end;
     justify-content: space-between;
     gap: var(--espaco-4);
     margin-bottom: var(--espaco-6);
 }
 
-.topo-titulo p {
-    color: var(--tinta-suave);
-}
-
-.topo-controles {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: var(--espaco-2);
-}
-
-/* O botão de filtros só existe no celular (ver "Responsivo"). */
-.botao-filtros {
-    display: none;
-    align-items: center;
-    justify-content: center;
-    gap: var(--espaco-1);
-    min-height: 44px;
-    padding: var(--espaco-2) var(--espaco-5);
-    background: var(--tinta);
-    border: 0;
-    border-radius: var(--raio-pilula);
-    color: #fff;
-    font-size: 14px;
+.topo-assunto {
+    margin-bottom: var(--espaco-1);
+    color: var(--texto-suave);
+    font-size: var(--f-14);
     font-weight: 600;
-    cursor: pointer;
 }
 
-.botao-filtros:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.botao-filtros-contagem {
-    font-variant-numeric: tabular-nums;
-}
-
-/* A coluna lateral tem largura fixa: ela serve ao conteúdo principal. */
-.colunas {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 320px;
-    gap: var(--espaco-6);
-    align-items: start;
-}
-
-.principal,
-.lateral {
+.conteudo {
     display: flex;
     flex-direction: column;
-    gap: var(--espaco-5);
-    min-width: 0;
+    gap: var(--espaco-6);
 }
 
-/* Faixa de limitações, logo acima do rodapé. */
-.limitacoes {
-    margin-top: var(--espaco-6);
-    padding: var(--espaco-4) var(--espaco-5);
-    background: var(--papel);
-    border-radius: var(--raio-painel);
-    box-shadow: var(--sombra-painel);
-}
-
-.limitacoes ul {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: var(--espaco-2) var(--espaco-5);
-    margin: var(--espaco-2) 0 0;
-    padding-left: var(--espaco-4);
-    color: var(--tinta-suave);
-    font-size: 13px;
-}
-
-.rodape {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: var(--espaco-2) var(--espaco-6);
-    margin-top: var(--espaco-6);
-    color: var(--tinta-apagada);
-    font-size: 12px;
+.aguardando {
+    color: var(--texto-suave);
+    font-size: var(--f-14);
+    list-style: none;
 }
 
 
 /* ===================================
-   Pílulas
+   Barra de filtros (computador)
    =================================== */
-/* Pílula escura = o que está ativo, como no menu da referência. */
+/* Compacta e presa ao topo ao rolar: o filtro fica sempre à vista. */
 
-.pilulas {
+.filtros {
+    position: sticky;
+    top: 0;
+    z-index: 10;
     display: flex;
     flex-wrap: wrap;
-    gap: var(--espaco-1);
-    padding: var(--espaco-1);
-    background: var(--papel);
-    border-radius: var(--raio-pilula);
-    box-shadow: var(--sombra-painel);
+    align-items: flex-end;
+    gap: var(--espaco-3) var(--espaco-5);
+    margin-bottom: var(--espaco-6);
+    padding: var(--espaco-3) var(--espaco-4);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+}
+
+/* O título e o resumo só aparecem na gaveta do celular. */
+.filtros-topo,
+.filtros-resumo {
+    display: none;
+}
+
+.filtros-periodo {
+    display: flex;
+    gap: var(--espaco-2);
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    color: var(--texto-suave);
+    font-size: var(--f-12);
+    font-weight: 600;
+}
+
+.campo select {
+    min-height: 36px;
+    padding: 0 var(--espaco-2);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    color: var(--texto);
+    font-size: var(--f-14);
+    font-weight: 400;
+}
+
+.campo select:disabled {
+    cursor: not-allowed;
+}
+
+/* Atalhos por era: botões colados; o ativo fica escuro. */
+.eras {
+    display: flex;
+    border: 1px solid var(--borda);
+    border-radius: 6px;
+    overflow: hidden;
 }
 
 .pilula {
-    min-height: 40px;
-    padding: var(--espaco-2) var(--espaco-4);
-    background: transparent;
+    min-height: 34px;
+    padding: 0 var(--espaco-3);
+    background: var(--cartao);
     border: 0;
-    border-radius: var(--raio-pilula);
-    font-size: 13px;
-    font-weight: 500;
+    color: var(--texto);
+    font-size: var(--f-14);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
     cursor: pointer;
-    transition: background-color 160ms ease-out, color 160ms ease-out;
+}
+
+.pilula + .pilula {
+    border-left: 1px solid var(--borda);
 }
 
 .pilula:hover:not(:disabled):not(.ativa) {
-    background: var(--papel-afundado);
+    background: var(--grade);
 }
 
 .pilula.ativa {
-    background: var(--tinta);
+    background: var(--texto);
     color: #fff;
 }
 
 .pilula:disabled {
     cursor: not-allowed;
+}
+
+/* O checkbox real continua na página, invisível, para manter teclado e leitor de tela. */
+.interruptor {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--espaco-2);
+    min-height: 36px;
+    font-size: var(--f-14);
+    cursor: pointer;
+}
+
+.interruptor input {
+    position: absolute;
+    width: 36px;
+    height: 20px;
+    margin: 0;
+    opacity: 0;
+    cursor: inherit;
+}
+
+.interruptor input:disabled {
+    cursor: not-allowed;
+}
+
+.interruptor-visual {
+    position: relative;
+    flex: none;
+    width: 36px;
+    height: 20px;
+    background: var(--contexto-claro);
+    border-radius: 999px;
+    transition: background-color 150ms ease-out;
+}
+
+.interruptor-visual::after {
+    content: "";
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 150ms ease-out;
+}
+
+.interruptor input:checked + .interruptor-visual {
+    background: var(--texto);
+}
+
+.interruptor input:checked + .interruptor-visual::after {
+    transform: translateX(16px);
+}
+
+.interruptor input:focus-visible + .interruptor-visual {
+    outline: 2px solid var(--texto);
+    outline-offset: 2px;
+}
+
+.botao-texto {
+    min-height: 36px;
+    margin-left: auto;
+    padding: 0 var(--espaco-2);
+    background: none;
+    border: 0;
+    color: var(--texto);
+    font-size: var(--f-14);
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    cursor: pointer;
+}
+
+.botao-texto:disabled {
+    color: var(--texto-suave);
+    cursor: not-allowed;
+}
+
+.botao-escuro {
+    min-height: 36px;
+    padding: 0 var(--espaco-4);
+    background: var(--texto);
+    border: 0;
+    border-radius: 6px;
+    color: #fff;
+    font-size: var(--f-14);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+/* O botão "Filtros" e o "Ver resultados" só existem no celular e no tablet. */
+.botao-filtros,
+.botao-fechar {
+    display: none;
 }
 
 
@@ -260,11 +342,11 @@ select {
    =================================== */
 
 .aviso {
-    margin-bottom: var(--espaco-5);
-    padding: var(--espaco-3) var(--espaco-5);
-    background: var(--papel);
-    border-radius: var(--raio-painel);
-    box-shadow: var(--sombra-painel);
+    margin-bottom: var(--espaco-6);
+    padding: var(--espaco-3) var(--espaco-4);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
 }
 
 .aviso-linha {
@@ -276,30 +358,29 @@ select {
 }
 
 .aviso-texto {
-    font-weight: 500;
+    font-size: var(--f-14);
     font-variant-numeric: tabular-nums;
 }
 
 .barra {
-    height: 8px;
+    height: 4px;
     margin-top: var(--espaco-2);
     overflow: hidden;
-    background: var(--papel-afundado);
-    border-radius: var(--raio-pilula);
+    background: var(--grade);
+    border-radius: 999px;
 }
 
 .barra-preenchida {
     width: 100%;
     height: 100%;
-    background: var(--ouro);
-    border-radius: var(--raio-pilula);
+    background: var(--texto-suave);
     transform: scaleX(0);
     transform-origin: left;
     transition: transform 200ms ease-out;
 }
 
 .aviso.erro {
-    background: var(--desce-fundo);
+    border-color: var(--desce-texto);
     color: var(--desce-texto);
 }
 
@@ -319,10 +400,12 @@ select {
     align-items: center;
     justify-content: space-between;
     gap: var(--espaco-3) var(--espaco-4);
-    padding: var(--espaco-4) var(--espaco-5);
-    background: #fff4c2;
-    border-radius: var(--raio-painel);
-    box-shadow: var(--sombra-painel);
+    padding: var(--espaco-4);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-left: 4px solid var(--texto);
+    border-radius: var(--raio);
+    font-size: var(--f-16);
 }
 
 .sem-resultado[hidden] {
@@ -331,102 +414,73 @@ select {
 
 
 /* ===================================
-   Painéis
-   =================================== */
-
-.painel {
-    padding: var(--espaco-5);
-    background: var(--papel);
-    border-radius: var(--raio-painel);
-    box-shadow: var(--sombra-painel);
-}
-
-.aguardando {
-    color: var(--tinta-apagada);
-    font-size: 13px;
-    list-style: none;
-}
-
-
-/* ===================================
    Indicadores
    =================================== */
+/* Rótulo pequeno em cima, número grande e uma linha de contexto embaixo. */
 
 .indicadores {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr)) minmax(0, 0.8fr);
     gap: var(--espaco-4);
 }
 
-.indicador h2 {
-    color: var(--tinta-suave);
-    font-size: 13px;
-    font-weight: 500;
+.indicador {
+    padding: var(--espaco-4) var(--espaco-5);
 }
 
-/* O número é o protagonista do cartão. tabular-nums evita que ele "pule". */
+.indicador h2 {
+    color: var(--texto-suave);
+    font-size: var(--f-14);
+    font-weight: 600;
+}
+
+/* tabular-nums: todos os algarismos com a mesma largura, o número não "pula". */
 .indicador-valor {
-    margin-top: var(--espaco-2);
-    font-size: 32px;
+    margin-top: var(--espaco-1);
+    font-size: var(--f-40);
     font-weight: 700;
-    letter-spacing: -0.02em;
-    line-height: 1.15;
+    line-height: 1.1;
     font-variant-numeric: tabular-nums;
 }
 
 .indicador-nota {
     margin-top: var(--espaco-1);
-    color: var(--tinta-apagada);
-    font-size: 12px;
+    color: var(--texto-suave);
+    font-size: var(--f-14);
+    font-variant-numeric: tabular-nums;
 }
 
-.indicador .selo {
-    display: inline-block;
-    margin-top: var(--espaco-2);
+/* O % de especiais é um extra: fica menor que os 3 KPIs obrigatórios. */
+.medidor .indicador-valor {
+    font-size: var(--f-28);
+    color: var(--destaque);
 }
 
-/* O atributo hidden precisa vencer o display definido acima. */
-.indicador .selo[hidden] {
-    display: none;
-}
-
-.medidor {
-    text-align: center;
-}
-
-.medidor-arco {
+.medidor-barra {
     display: block;
     width: 100%;
-    max-width: 150px;
-    margin: var(--espaco-2) auto 0;
+    height: 8px;
+    margin-top: var(--espaco-2);
 }
 
 .medidor-trilho,
 .medidor-valor {
-    fill: none;
-    stroke-width: 9;
-    stroke-linecap: round;
+    stroke-width: 8;
 }
 
 .medidor-trilho {
-    stroke: var(--papel-afundado);
+    stroke: var(--grade);
 }
 
 .medidor-valor {
-    stroke: var(--sobe-texto);
-    /* Com pathLength="100", o primeiro número do dasharray vira a porcentagem. */
+    stroke: var(--destaque);
+    /* Com pathLength="100", o primeiro número do dasharray é a porcentagem. */
     stroke-dasharray: 0 100;
-    transition: stroke-dasharray 300ms ease-out;
+    transition: stroke-dasharray 500ms ease-out;
 }
 
-/* Sem valor, a ponta arredondada desenharia um ponto que parece um dado. */
 .medidor-valor.vazio {
     display: none;
-}
-
-.medidor .indicador-valor {
-    margin-top: calc(var(--espaco-6) * -1);
-    font-size: 24px;
 }
 
 
@@ -437,23 +491,32 @@ select {
 .grade-graficos {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--espaco-5);
+    gap: var(--espaco-6);
 }
 
 .grafico-largo {
     grid-column: 1 / -1;
 }
 
-.grafico-destaque h2 {
-    font-size: 18px;
+.grafico,
+.achados {
+    padding: var(--espaco-5) var(--espaco-6);
 }
 
 /* A altura fixa impede que o Chart.js faça a página "pular" ao redesenhar.
    position: relative é exigido pelo modo responsivo do Chart.js. */
 .area-grafico {
     position: relative;
-    height: 260px;
+    height: 300px;
     margin-top: var(--espaco-4);
+}
+
+.area-grafico.alta {
+    height: 380px;
+}
+
+.area-ranking {
+    height: 400px;
 }
 
 .area-grafico canvas {
@@ -468,15 +531,12 @@ select {
     inset: 0;
     display: grid;
     place-items: center;
-    background: var(--papel-afundado);
-    border-radius: var(--raio-campo);
-}
-
-.vazio-grafico {
     margin: 0;
     padding: var(--espaco-6);
-    color: var(--tinta-suave);
-    font-size: 13px;
+    background: var(--fundo);
+    border-radius: 6px;
+    color: var(--texto-suave);
+    font-size: var(--f-14);
     text-align: center;
     text-wrap: pretty;
 }
@@ -485,110 +545,54 @@ select {
     display: none;
 }
 
-/* 11 linhas de barras precisam de mais altura para os nomes não sumirem. */
-.area-ranking {
-    height: 380px;
-}
-
 .grafico-nota {
     margin-top: var(--espaco-3);
-    color: var(--tinta-apagada);
-    font-size: 12px;
+    color: var(--texto-suave);
+    font-size: var(--f-14);
     text-wrap: pretty;
 }
 
-.area-grafico.alta {
-    height: 360px;
+.grafico-nota[hidden] {
+    display: none;
 }
 
-.grafico-com-ranking {
+/* Cores das eras escritas na nota do radar, no lugar da legenda. */
+.cor-destaque {
+    color: var(--destaque);
+    font-weight: 700;
+}
+
+.cor-contexto {
+    color: var(--texto-suave);
+    font-weight: 700;
+}
+
+/* Rosca com a tabela de valores ao lado. */
+.grafico-com-tabela {
     display: grid;
-    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
-    gap: var(--espaco-5);
-    align-items: stretch;
-}
-
-.ranking {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    gap: var(--espaco-1);
-    margin-top: var(--espaco-4);
-    list-style: none;
-}
-
-.ranking li {
-    display: flex;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--espaco-4);
     align-items: center;
-    gap: var(--espaco-2);
-    min-height: 30px;
 }
-
-.ranking-posicao {
-    width: 18px;
-    color: var(--tinta-apagada);
-    font-size: 12px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
-}
-
-.ranking-nome {
-    flex: 1;
-    min-width: 0;
-    font-size: 13px;
-    font-weight: 500;
-}
-
-.ranking-ano {
-    color: var(--tinta-apagada);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-}
-
-/* Pílula escura para o valor, como o "XP 5.000" da referência. */
-.pilula-valor {
-    padding: 2px var(--espaco-2);
-    background: var(--tinta);
-    border-radius: var(--raio-pilula);
-    color: #fff;
-    font-size: 12px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-/* ===================================
-   Legendas e medalhas
-   =================================== */
 
 .legenda {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--espaco-1) var(--espaco-4);
-    margin: var(--espaco-3) 0 0;
-    padding: 0;
+    gap: var(--espaco-2);
     list-style: none;
-}
-
-/* Legenda em uma coluna, para valores com seta ("4% → 20%"). */
-.legenda-coluna {
-    grid-template-columns: minmax(0, 1fr);
 }
 
 .legenda li {
     display: flex;
     align-items: center;
     gap: var(--espaco-2);
-    min-height: 24px;
-    font-size: 12px;
+    font-size: var(--f-14);
 }
 
 .legenda-cor {
     flex: none;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
 }
 
 .legenda-nome {
@@ -599,248 +603,67 @@ select {
     margin-left: auto;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
-}
-
-.medalha {
-    display: inline-grid;
-    flex: none;
-    place-items: center;
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    color: var(--tinta);
-    font-size: 11px;
-    line-height: 1;
-}
-
-.medalha.ouro {
-    background: radial-gradient(circle at 35% 30%, #ffec9a, #e8b90c);
-}
-
-.medalha.prata {
-    background: radial-gradient(circle at 35% 30%, #f3f4f5, #aeb3b8);
-}
-
-.medalha.bronze {
-    background: radial-gradient(circle at 35% 30%, #f3c79c, #c47f3f);
+    white-space: nowrap;
 }
 
 
 /* ===================================
-   Coluna lateral: filtros
+   O que os dados mostram
    =================================== */
-
-.filtros {
-    display: flex;
-    flex-direction: column;
-    gap: var(--espaco-3);
-}
-
-.filtros-topo {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--espaco-2);
-}
-
-/* "Ver resultados" só aparece na gaveta do celular. */
-.botao-fechar {
-    display: none;
-    min-height: 40px;
-    padding: var(--espaco-2) var(--espaco-4);
-    background: var(--tinta);
-    border: 0;
-    border-radius: var(--raio-pilula);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-/* Quantas cartas estão no filtro: pílula escura, como os valores da referência. */
-.filtros-resumo {
-    align-self: flex-start;
-    padding: var(--espaco-1) var(--espaco-3);
-    background: var(--tinta);
-    border-radius: var(--raio-pilula);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    font-variant-numeric: tabular-nums;
-}
-
-/* Fundo escuro atrás da gaveta. Só é mostrado no celular, com a gaveta aberta. */
-.fundo-gaveta {
-    position: fixed;
-    inset: 0;
-    z-index: 20;
-    background: rgba(28, 27, 24, 0.45);
-}
-
-.fundo-gaveta[hidden] {
-    display: none;
-}
-
-.filtros-periodo {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--espaco-3);
-}
-
-.campo {
-    display: flex;
-    flex-direction: column;
-    gap: var(--espaco-1);
-    color: var(--tinta-suave);
-    font-size: 12px;
-    font-weight: 500;
-}
-
-.campo select {
-    width: 100%;
-    min-height: 40px;
-    padding: var(--espaco-2) var(--espaco-3);
-    background: var(--papel-afundado);
-    border: 1px solid var(--linha);
-    border-radius: var(--raio-campo);
-    color: var(--tinta);
-    font-size: 13px;
-    font-weight: 400;
-}
-
-.campo select:disabled {
-    cursor: not-allowed;
-}
-
-/* O checkbox real continua na página, invisível, para manter teclado e leitor de tela. */
-.interruptor {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: var(--espaco-3);
-    min-height: 40px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.interruptor input {
-    position: absolute;
-    width: 44px;
-    height: 24px;
-    margin: 0;
-    opacity: 0;
-    cursor: inherit;
-}
-
-.interruptor input:disabled {
-    cursor: not-allowed;
-}
-
-.interruptor-visual {
-    position: relative;
-    flex: none;
-    width: 44px;
-    height: 24px;
-    background: var(--papel-afundado);
-    border-radius: var(--raio-pilula);
-    box-shadow: inset 0 0 0 1px var(--linha);
-    transition: background-color 160ms ease-out;
-}
-
-.interruptor-visual::after {
-    content: "";
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 18px;
-    height: 18px;
-    background: var(--papel);
-    border-radius: 50%;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-    transition: transform 160ms ease-out;
-}
-
-.interruptor input:checked + .interruptor-visual {
-    background: var(--tinta);
-}
-
-.interruptor input:checked + .interruptor-visual::after {
-    transform: translateX(20px);
-}
-
-.interruptor input:focus-visible + .interruptor-visual {
-    outline: 2px solid var(--tinta);
-    outline-offset: 2px;
-}
-
-.filtros-nota {
-    padding: var(--espaco-3);
-    background: #fff4c2;
-    border-radius: var(--raio-campo);
-    font-size: 12px;
-    line-height: 1.45;
-    text-wrap: pretty;
-}
-
-.botao-claro,
-.botao-escuro {
-    min-height: 40px;
-    padding: var(--espaco-2) var(--espaco-4);
-    border: 0;
-    border-radius: var(--raio-pilula);
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-}
-
-.botao-claro {
-    background: var(--papel-afundado);
-}
-
-.botao-claro:disabled {
-    color: var(--tinta-apagada);
-    cursor: not-allowed;
-}
-
-.botao-escuro {
-    background: var(--tinta);
-    color: #fff;
-}
-
-
-/* ===================================
-   Coluna lateral: achados e consistência
-   =================================== */
-
-.achados h2 {
-    margin-bottom: var(--espaco-3);
-}
 
 .achados-lista {
     display: grid;
     gap: var(--espaco-3);
-    margin: 0;
-    padding: 0;
+    margin-top: var(--espaco-4);
     list-style: none;
-    font-size: 13px;
+    font-size: var(--f-16);
     line-height: 1.45;
 }
 
-.achados-lista strong {
-    font-weight: 600;
-}
-
-.achados-lista p {
-    color: var(--tinta-suave);
+.achados-lista li {
+    padding-bottom: var(--espaco-3);
+    border-bottom: 1px solid var(--grade);
     text-wrap: pretty;
 }
 
-/* Cartão escuro, como o saldo da referência: é a prova de integridade dos dados. */
+.achados-lista li:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.achados-lista strong {
+    font-weight: 700;
+}
+
+
+/* ===================================
+   Rodapé: limitações e consistência
+   =================================== */
+
+.fechamento {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    gap: var(--espaco-6);
+    margin-top: var(--espaco-6);
+}
+
+.limitacoes,
 .consistencia {
-    padding: var(--espaco-5);
-    background: var(--tinta);
-    border-radius: var(--raio-painel);
-    color: #fff;
+    padding: var(--espaco-5) var(--espaco-6);
+}
+
+.limitacoes h2,
+.consistencia h2 {
+    font-size: var(--f-16);
+}
+
+.limitacoes ul {
+    display: grid;
+    gap: var(--espaco-1);
+    margin-top: var(--espaco-3);
+    padding-left: var(--espaco-5);
+    color: var(--texto-suave);
+    font-size: var(--f-14);
 }
 
 .consistencia-topo {
@@ -852,8 +675,8 @@ select {
 
 .consistencia-numeros {
     display: grid;
-    gap: var(--espaco-2);
-    margin-top: var(--espaco-4);
+    gap: var(--espaco-1);
+    margin-top: var(--espaco-3);
 }
 
 .consistencia-numeros div {
@@ -864,20 +687,30 @@ select {
 }
 
 .consistencia-numeros dt {
-    color: #d6d2c6;
-    font-size: 13px;
+    color: var(--texto-suave);
+    font-size: var(--f-14);
 }
 
 .consistencia-numeros dd {
-    font-size: 20px;
+    font-size: var(--f-20);
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
 .consistencia-nota {
-    margin-top: var(--espaco-3);
-    color: #d6d2c6;
-    font-size: 12px;
+    margin-top: var(--espaco-2);
+    color: var(--texto-suave);
+    font-size: var(--f-12);
+}
+
+.rodape {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--espaco-2) var(--espaco-6);
+    margin-top: var(--espaco-6);
+    color: var(--texto-suave);
+    font-size: var(--f-12);
 }
 
 
@@ -888,25 +721,23 @@ select {
 
 .selo {
     flex: none;
-    padding: 2px var(--espaco-3);
-    border-radius: var(--raio-pilula);
-    font-size: 12px;
+    padding: 0 var(--espaco-2);
+    border: 1px solid currentColor;
+    border-radius: 999px;
+    font-size: var(--f-12);
     font-weight: 600;
     white-space: nowrap;
 }
 
 .selo-neutro {
-    background: var(--ouro);
-    color: var(--tinta);
+    color: var(--texto-suave);
 }
 
 .selo-sobe {
-    background: var(--sobe-fundo);
     color: var(--sobe-texto);
 }
 
 .selo-desce {
-    background: var(--desce-fundo);
     color: var(--desce-texto);
 }
 
@@ -915,83 +746,83 @@ select {
    Responsivo
    =================================== */
 
-/* Projetor e telas grandes: mais largura e letras maiores para ler à distância. */
+/* Projetor (1600 px ou mais): mais largura, letras e gráficos maiores. */
 @media (min-width: 1600px) {
-    body {
-        font-size: 15px;
+    :root {
+        --f-12: 14px;
+        --f-14: 16px;
+        --f-16: 18px;
+        --f-20: 22px;
+        --f-28: 32px;
+        --f-40: 48px;
     }
 
-    .mesa {
-        max-width: 1760px;
-    }
-
-    h1 {
-        font-size: 34px;
-    }
-
-    h2 {
-        font-size: 17px;
-    }
-
-    .grafico-destaque h2 {
-        font-size: 21px;
-    }
-
-    .colunas {
-        grid-template-columns: minmax(0, 1fr) 360px;
+    .pagina {
+        max-width: 1600px;
     }
 
     .area-grafico {
-        height: 300px;
+        height: 340px;
     }
 
-    .area-grafico.alta,
+    .area-grafico.alta {
+        height: 440px;
+    }
+
     .area-ranking {
-        height: 420px;
-    }
-
-    .grafico-nota,
-    .legenda li,
-    .ranking-nome,
-    .limitacoes ul {
-        font-size: 14px;
+        height: 460px;
     }
 }
 
-/* Tablet e celular: coluna lateral abaixo e filtros numa gaveta. */
+/* Tablet e celular: os filtros viram uma gaveta que sobe da parte de baixo. */
 @media (max-width: 1100px) {
-    .colunas {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .lateral {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
     .indicadores {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .botao-filtros,
-    .botao-fechar {
+    .botao-filtros {
         display: inline-flex;
+        flex: none;
         align-items: center;
+        gap: var(--espaco-1);
+        min-height: 44px;
+        padding: 0 var(--espaco-4);
+        background: var(--texto);
+        border: 0;
+        border-radius: 6px;
+        color: #fff;
+        font-size: var(--f-16);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .botao-filtros:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .botao-filtros-contagem {
+        font-variant-numeric: tabular-nums;
     }
 
     /* Gaveta: fora do fluxo e escondida abaixo da tela; visibility tira os controles do Tab. */
     .filtros {
         position: fixed;
+        top: auto;
         right: 0;
         bottom: 0;
         left: 0;
         z-index: 30;
+        flex-direction: column;
+        flex-wrap: nowrap;
+        align-items: stretch;
+        gap: var(--espaco-4);
         max-width: 560px;
         max-height: 85vh;
         margin: 0 auto;
+        padding: var(--espaco-5);
         overflow-y: auto;
-        border-radius: var(--raio-painel) var(--raio-painel) 0 0;
-        box-shadow: 0 -12px 40px rgba(28, 27, 24, 0.18);
+        border-radius: var(--raio) var(--raio) 0 0;
         transform: translateY(100%);
         visibility: hidden;
         transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s linear 250ms;
@@ -1003,78 +834,125 @@ select {
         transition: transform 250ms cubic-bezier(0.23, 1, 0.32, 1), visibility 0s;
     }
 
+    .filtros-topo {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .filtros-resumo {
+        display: block;
+        color: var(--texto-suave);
+        font-size: var(--f-14);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .botao-fechar {
+        display: inline-flex;
+        align-items: center;
+        min-height: 40px;
+        padding: 0 var(--espaco-4);
+        background: var(--texto);
+        border: 0;
+        border-radius: 6px;
+        color: #fff;
+        font-size: var(--f-14);
+        font-weight: 600;
+        cursor: pointer;
+    }
+
+    .filtros-periodo .campo {
+        flex: 1;
+    }
+
+    .campo select {
+        width: 100%;
+        min-height: 44px;
+    }
+
+    .pilula {
+        flex: 1;
+        min-height: 44px;
+    }
+
+    .botao-texto {
+        margin-left: 0;
+        align-self: flex-start;
+    }
+
+    /* Fundo escuro atrás da gaveta. */
+    .fundo-gaveta {
+        position: fixed;
+        inset: 0;
+        z-index: 20;
+        background: rgba(31, 41, 55, 0.45);
+    }
+
+    .fundo-gaveta[hidden] {
+        display: none;
+    }
+
     /* Com a gaveta aberta, a página atrás não rola. */
     body.gaveta-aberta {
         overflow: hidden;
     }
 }
 
-/* Celular: uma coluna, com margem lateral de 16px. */
-@media (max-width: 720px) {
-    body {
-        padding: 0;
-    }
-
-    .mesa {
-        padding: var(--espaco-4);
-        border-radius: 0;
-    }
-
-    h1 {
-        font-size: 24px;
-    }
-
-    .pilulas {
-        width: 100%;
-        justify-content: space-between;
-        border-radius: var(--raio-painel);
-    }
-
-    .pilula {
-        flex: 1 1 40%;
-        padding-inline: var(--espaco-2);
-    }
-
-    .lateral,
+/* Telas estreitas: os gráficos em uma coluna. */
+@media (max-width: 900px) {
     .grade-graficos,
-    .grafico-com-ranking {
+    .fechamento {
         grid-template-columns: minmax(0, 1fr);
-    }
-
-    .ranking {
-        margin-top: 0;
-    }
-
-    .area-grafico.alta {
-        height: 300px;
-    }
-
-    .topo-controles {
-        width: 100%;
-        flex-direction: column;
-        align-items: stretch;
     }
 }
 
-/* Celulares estreitos: KPIs em 2×2 e legendas em uma coluna. */
-@media (max-width: 420px) {
+/* Celular: margem lateral de 16px e números menores. */
+@media (max-width: 600px) {
+    .pagina {
+        padding: var(--espaco-5) var(--espaco-4);
+    }
+
+    h1 {
+        font-size: var(--f-20);
+    }
+
+    h2 {
+        font-size: var(--f-16);
+    }
+
     .indicadores {
         gap: var(--espaco-3);
     }
 
     .indicador {
-        padding: var(--espaco-4);
+        padding: var(--espaco-3) var(--espaco-4);
     }
 
     .indicador-valor {
-        font-size: 24px;
+        font-size: var(--f-28);
     }
 
     .medidor .indicador-valor {
-        font-size: 20px;
+        font-size: var(--f-20);
     }
 
-    .legenda {
+    .grafico,
+    .achados,
+    .limitacoes,
+    .consistencia {
+        padding: var(--espaco-4);
+    }
+
+    .area-grafico,
+    .area-grafico.alta {
+        height: 260px;
+    }
+
+    .area-ranking {
+        height: 380px;
+    }
+
+    .grafico-com-tabela {
         grid-template-columns: minmax(0, 1fr);
     }
 }

@@ -77,16 +77,21 @@ const TIPOS = [
 // Cores
 // ===================================
 
-const COR_TINTA = "#1c1b18";
-const COR_TEXTO_SUAVE = "#5f5a4c";
+const COR_TINTA = "#1f2937";
+const COR_TEXTO_SUAVE = "#6b7280";
 
-// Uma cor de destaque (âmbar); o contexto fica em cinza.
-const COR_ESPECIAIS = "#c28500";
-const COR_ESPECIAIS_CLARO = "#e7cf94";
-const COR_NORMAIS = "#8a8577";
-const COR_NORMAIS_CLARO = "#d3cebf";
-const COR_PAINEL = "#fffdf7";
-const COR_GRADE = "rgba(28, 27, 24, 0.08)";
+// Knaflic: tudo em cinza e UMA cor de destaque (laranja). A mesma entidade tem
+// sempre a mesma cor: laranja = especiais, era mais recente e pico.
+const COR_ESPECIAIS = "#e8710a";
+const COR_ESPECIAIS_CLARO = "rgba(232, 113, 10, 0.45)";
+const COR_NORMAIS = "#9ca3af";
+const COR_NORMAIS_CLARO = "#d1d5db";
+const COR_NEUTRA_CLARA = "#e5e7eb";
+const COR_PAINEL = "#ffffff";
+const COR_GRADE = "#f3f4f6";
+
+// A mesma fonte da página também nos gráficos.
+const FONTE = '"Source Sans 3", "Segoe UI", Arial, sans-serif';
 
 // ===================================
 // Faixas de raridade
@@ -603,6 +608,42 @@ function esvaziarGrafico(grafico, idCanvas, mensagem) {
     return null;
 }
 
+// ===================================
+// Criar ou atualizar um gráfico
+// ===================================
+// Na primeira vez, cria o gráfico (new Chart). Nas seguintes, copia os novos
+// valores para DENTRO do gráfico que já existe e chama update(): assim o
+// Chart.js anima do valor antigo para o novo, em vez de redesenhar do zero.
+// Os conjuntos de dados são atualizados no lugar (Object.assign) porque, se
+// fossem trocados por objetos novos, o Chart.js perderia os valores antigos.
+
+function desenharGrafico(grafico, idCanvas, configuracao) {
+    if (grafico === null) {
+        return new Chart(document.getElementById(idCanvas), configuracao);
+    }
+
+    const novos = configuracao.data.datasets;
+    const atuais = grafico.data.datasets;
+
+    grafico.data.labels = configuracao.data.labels;
+
+    novos.forEach((novo, indice) => {
+        if (atuais[indice]) {
+            Object.assign(atuais[indice], novo);
+        } else {
+            atuais.push(novo);
+        }
+    });
+
+    // A rosca pode passar de 2 anéis para 1: o que sobrar sai.
+    atuais.length = novos.length;
+
+    grafico.options = configuracao.options;
+    grafico.update();
+
+    return grafico;
+}
+
 // Sem cartas é um caso; com cartas mas sem Pokémon é outro, e a mensagem muda.
 function mensagemDeVazio(cartas) {
     return cartas.length === 0 ? MENSAGEM_SEM_CARTAS : MENSAGEM_SEM_POKEMON;
@@ -696,7 +737,6 @@ function calcularIndicadores(data) {
     // Com um ano só, não há o que comparar.
     const kpiCrescimento = document.getElementById("kpiCrescimento");
     const notaCrescimento = document.getElementById("notaCrescimento");
-    const selo = document.getElementById("seloCrescimento");
 
     if (resumo.length < 2) {
         // A nota diz o motivo: falta Pokémon, ou o período tem um ano só.
@@ -704,20 +744,16 @@ function calcularIndicadores(data) {
         notaCrescimento.textContent = pokemons.length === 0
             ? "sem Pokémon neste filtro"
             : "precisa de 2 anos ou mais";
-        selo.hidden = true;
     } else {
         const primeiroAno = resumo[0];
         const ultimoAno = resumo[resumo.length - 1];
         const crescimento = (ultimoAno.hpGeral / primeiroAno.hpGeral - 1) * 100;
         const sinal = crescimento >= 0 ? "+" : "";
 
+        // O sinal + ou − já diz se cresceu ou caiu; um selo repetiria a informação.
         kpiCrescimento.textContent = sinal + formatarPercentual(crescimento);
         notaCrescimento.textContent = `${Math.round(primeiroAno.hpGeral)} → ${Math.round(ultimoAno.hpGeral)} HP ` +
             `(${primeiroAno.ano}–${ultimoAno.ano})`;
-
-        selo.hidden = false;
-        selo.textContent = crescimento >= 0 ? "▲ Cresceu" : "▼ Caiu";
-        selo.className = crescimento >= 0 ? "selo selo-sobe" : "selo selo-desce";
     }
 
     // Medidor: % de cartas especiais entre os Pokémon
@@ -776,18 +812,12 @@ function criarGraficoCartasPorAno(data) {
           `(${formatarNumero(Math.round(antes))} → ${formatarNumero(Math.round(depois))})`
         : "Cartas impressas por ano");
 
-    // A pílula destaca o maior valor. Um número em cada ponto viraria ruído.
+    // A anotação destaca o maior valor. Um número em cada ponto viraria ruído.
     const indiceMaior = valores.indexOf(Math.max(...valores));
+    const corDoMaior = Number(nomes[indiceMaior]) >= inicioRecente ? COR_ESPECIAIS : COR_TEXTO_SUAVE;
 
-    // Destruir gráfico anterior
-    if (graficoCartasPorAno) {
-        graficoCartasPorAno.destroy();
-    }
-
-    const canvas = document.getElementById("graficoCartasPorAno");
-
-    // Criar gráfico
-    graficoCartasPorAno = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoCartasPorAno = desenharGrafico(graficoCartasPorAno, "graficoCartasPorAno", {
         type: "line",
         data: {
             labels: nomes,
@@ -801,7 +831,7 @@ function criarGraficoCartasPorAno(data) {
                     pointRadius: 0,
                     pointHoverRadius: 4,
                     tension: 0.25,
-                    // Trecho cinza até 2016 e âmbar na era recente.
+                    // Trecho cinza até 2016 e laranja na era recente.
                     segment: {
                         borderColor: (trecho) =>
                             Number(nomes[trecho.p1DataIndex]) >= inicioRecente ? COR_ESPECIAIS : COR_NORMAIS,
@@ -814,12 +844,13 @@ function criarGraficoCartasPorAno(data) {
             interaction: { mode: "index", intersect: false },
             plugins: {
                 legend: { display: false },
-                pilulas: {
+                rotulos: {
                     itens: [
                         {
                             serie: 0,
                             indice: indiceMaior,
                             texto: `${nomes[indiceMaior]}: ${formatarNumero(valores[indiceMaior])}`,
+                            cor: corDoMaior,
                         },
                     ],
                 },
@@ -831,7 +862,7 @@ function criarGraficoCartasPorAno(data) {
             },
             scales: {
                 x: { grid: { display: false } },
-                y: { beginAtZero: true, grid: { color: COR_GRADE } },
+                y: { beginAtZero: true, grid: { color: COR_GRADE }, ticks: { maxTicksLimit: 5 } },
             },
         },
     });
@@ -912,28 +943,24 @@ function criarGraficoHpPorAno(data) {
         .filter((mecanica) => anos.includes(mecanica.ano))
         .map((mecanica) => ({ indice: anos.indexOf(mecanica.ano), rotulo: mecanica.rotulo }));
 
-    // Rótulos diretos no último ano, no lugar da legenda.
+    // Rótulos diretos na ponta de cada linha, na cor da série, no lugar da legenda.
     const indiceUltimo = anos.indexOf(ultimoAno);
-    const pilulas = [["Normais", normais], ["Especiais", especiais]]
-        .map(([nome, serie], indiceSerie) => ({ nome, serie: indiceSerie, valor: serie[indiceUltimo] }))
+    const rotulos = [["Normais", normais, COR_TEXTO_SUAVE], ["Especiais", especiais, COR_ESPECIAIS]]
+        .map(([nome, serie, cor], indiceSerie) => ({ nome, cor, serie: indiceSerie, valor: serie[indiceUltimo] }))
         .filter((item) => item.valor !== null)
         .map((item) => ({
             serie: item.serie,
             indice: indiceUltimo,
             texto: `${item.nome}: ${Math.round(item.valor)} HP`,
+            cor: item.cor,
+            aDireita: true,
         }));
 
     const tendenciaNormais = montarTendencia(anos, resumo, "hpNormais");
     const tendenciaEspeciais = montarTendencia(anos, resumo, "hpEspeciais");
 
-
-    if (graficoHpPorAno) {
-        graficoHpPorAno.destroy();
-    }
-
-    const canvas = document.getElementById("graficoHpPorAno");
-
-    graficoHpPorAno = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoHpPorAno = desenharGrafico(graficoHpPorAno, "graficoHpPorAno", {
         type: "line",
         data: {
             labels: anos,
@@ -982,12 +1009,20 @@ function criarGraficoHpPorAno(data) {
             ],
         },
         options: {
-            layout: { padding: { top: 26 } },
+            // Espaço no alto para os nomes das mecânicas (2 linhas em tela estreita)
+            // e à direita para os rótulos das linhas.
+            // A função é recalculada a cada desenho, então vale também ao girar o celular.
+            layout: {
+                padding: (contexto) => ({
+                    top: contexto.chart.width < 600 ? 44 : 26,
+                    right: ehProjetor() ? 140 : 118,
+                }),
+            },
             interaction: { mode: "index", intersect: false },
             plugins: {
                 legend: { display: false },
                 mecanicas: { marcos: marcos },
-                pilulas: { itens: pilulas },
+                rotulos: { itens: rotulos },
                 tooltip: {
                     callbacks: {
                         label: (contexto) =>
@@ -997,7 +1032,7 @@ function criarGraficoHpPorAno(data) {
             },
             scales: {
                 x: { grid: { display: false } },
-                y: { beginAtZero: true, grid: { color: COR_GRADE } },
+                y: { beginAtZero: true, grid: { color: COR_GRADE }, ticks: { maxTicksLimit: 5 } },
             },
         },
     });
@@ -1064,13 +1099,8 @@ function criarGraficoGanho(data) {
     const nomes = ["Especiais", "Normais"];
     const valores = [parteEspeciais, 100 - parteEspeciais];
 
-    if (graficoGanho) {
-        graficoGanho.destroy();
-    }
-
-    const canvas = document.getElementById("graficoGanho");
-
-    graficoGanho = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoGanho = desenharGrafico(graficoGanho, "graficoGanho", {
         type: "pie",
         data: {
             labels: nomes,
@@ -1138,7 +1168,8 @@ function criarGraficoRaridade(data) {
     const aneis = eras.length >= 2 ? [eras[eras.length - 1], eras[0]] : eras;
     const partes = aneis.map((item) => dividirRaridade(item.cartas));
     const nomes = ["Raras especiais", "Outras raras", "Demais cartas"];
-    const cores = [COR_ESPECIAIS, COR_ESPECIAIS_CLARO, COR_NORMAIS_CLARO];
+    // Só as raras especiais em laranja; o resto em dois tons de cinza.
+    const cores = [COR_ESPECIAIS, COR_NORMAIS, COR_NEUTRA_CLARA];
 
     // % de raras = raras especiais + outras raras.
     const raras = partes.map((valores) => valores[0] + valores[1]);
@@ -1154,13 +1185,8 @@ function criarGraficoRaridade(data) {
         definirTitulo("titulo4", `Raras (Holo ou acima): ${Math.round(raras[0])}% das cartas`);
     }
 
-    if (graficoRaridade) {
-        graficoRaridade.destroy();
-    }
-
-    const canvas = document.getElementById("graficoRaridade");
-
-    graficoRaridade = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoRaridade = desenharGrafico(graficoRaridade, "graficoRaridade", {
         type: "doughnut",
         data: {
             labels: nomes,
@@ -1244,7 +1270,6 @@ function criarGraficoColecoes(data) {
             : `Nenhuma coleção com ${MINIMO_POKEMON_COLECAO} Pokémon ou mais neste filtro.`;
 
         graficoColecoes = esvaziarGrafico(graficoColecoes, "graficoColecoes", mensagem);
-        preencherRanking([]);
         definirTitulo("titulo5", "Coleções com maior HP médio");
         return;
     }
@@ -1265,13 +1290,8 @@ function criarGraficoColecoes(data) {
     // Destaque para as coleções da era recente; as demais ficam em cinza.
     const cores = ranking.map((colecao) => (colecao.ano >= inicioRecente ? COR_ESPECIAIS : COR_NORMAIS));
 
-    if (graficoColecoes) {
-        graficoColecoes.destroy();
-    }
-
-    const canvas = document.getElementById("graficoColecoes");
-
-    graficoColecoes = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoColecoes = desenharGrafico(graficoColecoes, "graficoColecoes", {
         type: "bar",
         data: {
             labels: nomes,
@@ -1280,14 +1300,17 @@ function criarGraficoColecoes(data) {
                     label: "HP médio",
                     data: valores,
                     backgroundColor: cores,
-                    borderRadius: 4,
+                    borderRadius: 2,
                 },
             ],
         },
         options: {
             indexAxis: "y",
+            // Espaço à direita para o valor escrito na ponta de cada barra.
+            layout: { padding: { right: 48 } },
             plugins: {
                 legend: { display: false },
+                valoresNasBarras: { formatar: formatarDecimal },
                 tooltip: {
                     callbacks: {
                         label: (contexto) =>
@@ -1296,71 +1319,31 @@ function criarGraficoColecoes(data) {
                 },
             },
             scales: {
-                x: { beginAtZero: true, grid: { color: COR_GRADE } },
+                // O valor está escrito em cada barra: o eixo X e a grade seriam repetição.
+                x: { display: false, beginAtZero: true },
                 y: {
                     grid: { display: false },
-                    // Nomes longos são encurtados no eixo; a lista ao lado mostra o nome inteiro.
+                    // Posição, nome e ano no rótulo da barra. "Shiny Vault (2019)" já traz o ano no nome.
                     ticks: {
-                        callback: (_valor, indice) =>
-                            nomes[indice].length > 22 ? nomes[indice].slice(0, 21) + "…" : nomes[indice],
+                        color: COR_TINTA,
+                        font: (contexto) => ({ size: contexto.chart.width < 500 ? 12 : Chart.defaults.font.size }),
+                        // function (e não =>) para usar this.chart. No celular, o nome é
+                        // encurtado e o ano sai (o título já diz o período; o tooltip mostra o ano).
+                        callback: function (_valor, indice) {
+                            const ano = String(ranking[indice].ano);
+                            const nome = nomes[indice];
+
+                            if (this.chart.width < 500) {
+                                return `${indice + 1}. ${nome.length > 12 ? nome.slice(0, 11) + "…" : nome}`;
+                            }
+
+                            return `${indice + 1}. ${nome.includes(ano) ? nome : `${nome} (${ano})`}`;
+                        },
                     },
                 },
             },
         },
     });
-
-    preencherRanking(ranking);
-}
-
-// ===================================
-// Ranking das coleções
-// ===================================
-
-function preencherRanking(ranking) {
-    const lista = document.getElementById("rankingColecoes");
-
-    if (ranking.length === 0) {
-        const vazio = document.createElement("li");
-        vazio.className = "aguardando";
-        vazio.textContent = "Sem coleções para mostrar neste filtro.";
-        lista.replaceChildren(vazio);
-        return;
-    }
-
-    const medalhas = ["ouro", "prata", "bronze"];
-
-    const linhas = ranking.map((colecao, indice) => {
-        const linha = document.createElement("li");
-
-        const posicao = document.createElement("span");
-        posicao.className = "ranking-posicao";
-        posicao.textContent = indice + 1;
-
-        const nome = document.createElement("span");
-        nome.className = "ranking-nome";
-        nome.textContent = colecao.nome;
-
-        const ano = document.createElement("span");
-        ano.className = "ranking-ano";
-        ano.textContent = colecao.ano;
-
-        const valor = document.createElement("span");
-        valor.className = "pilula-valor";
-        valor.textContent = `HP ${formatarDecimal(colecao.hp)}`;
-
-        linha.append(posicao, nome);
-
-        // Só os 3 primeiros levam medalha.
-        if (medalhas[indice]) {
-            linha.append(criarMedalha(medalhas[indice]));
-        }
-
-        linha.append(ano, valor);
-
-        return linha;
-    });
-
-    lista.replaceChildren(...linhas);
 }
 
 // ===================================
@@ -1409,8 +1392,11 @@ function criarGraficoEras(data) {
         ? [erasComPokemon[0], erasComPokemon[erasComPokemon.length - 1]]
         : erasComPokemon;
 
+    const nota = document.getElementById("notaEras");
+
     if (obterPokemons(data).length === 0) {
         graficoEras = esvaziarGrafico(graficoEras, "graficoEras", mensagemDeVazio(data));
+        nota.hidden = true;
         return;
     }
 
@@ -1418,10 +1404,24 @@ function criarGraficoEras(data) {
     if (eras.length < 2) {
         graficoEras = esvaziarGrafico(graficoEras, "graficoEras",
             "Este gráfico compara eras, e o período escolhido cobre só uma. Amplie o período.");
+        nota.hidden = true;
         return;
     }
 
     esconderMensagemDoGrafico("graficoEras");
+
+    // No lugar da legenda, a nota diz qual era é cada cor (texto colorido).
+    const eraRecente = document.createElement("span");
+    eraRecente.className = "cor-destaque";
+    eraRecente.textContent = eras[1].era.nome;
+
+    const eraAntiga = document.createElement("span");
+    eraAntiga.className = "cor-contexto";
+    eraAntiga.textContent = eras[0].era.nome;
+
+    nota.hidden = false;
+    nota.replaceChildren(eraRecente, " × ", eraAntiga,
+        ". 100 = maior valor entre as duas eras (reais no tooltip). % raras usa todas as cartas; % especiais, só os Pokémon.");
 
     const reais = eras.map((item) => [
         item.resumo.hp,
@@ -1446,7 +1446,7 @@ function criarGraficoEras(data) {
         ? `A era ${eras[1].era.nome} supera a de ${eras[0].era.nome} em todos os eixos`
         : `Eras ${eras[0].era.nome} × ${eras[1].era.nome}`);
 
-    // Primeira era em cinza (contexto), última em âmbar (destaque).
+    // Primeira era em cinza (contexto), última em laranja (destaque).
     const cores = [COR_NORMAIS, COR_ESPECIAIS];
 
     const datasets = eras.map((item, indiceEra) => ({
@@ -1463,13 +1463,8 @@ function criarGraficoEras(data) {
         pointRadius: 3,
     }));
 
-    if (graficoEras) {
-        graficoEras.destroy();
-    }
-
-    const canvas = document.getElementById("graficoEras");
-
-    graficoEras = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoEras = desenharGrafico(graficoEras, "graficoEras", {
         type: "radar",
         data: {
             labels: rotulos,
@@ -1477,7 +1472,8 @@ function criarGraficoEras(data) {
         },
         options: {
             plugins: {
-                legend: { position: "bottom" },
+                // As cores das eras estão escritas na nota abaixo do gráfico.
+                legend: { display: false },
                 tooltip: {
                     callbacks: {
                         label: (contexto) => {
@@ -1497,10 +1493,13 @@ function criarGraficoEras(data) {
                     min: 0,
                     max: 100,
                     ticks: { display: false },
-                    grid: { color: COR_GRADE },
-                    angleLines: { color: COR_GRADE },
+                    grid: { color: COR_NEUTRA_CLARA },
+                    angleLines: { color: COR_NEUTRA_CLARA },
                     // Fonte menor quando o gráfico é estreito (celular).
-                    pointLabels: { font: (contexto) => ({ size: contexto.chart.width < 450 ? 11 : 13 }) },
+                    pointLabels: {
+                        color: COR_TINTA,
+                        font: (contexto) => ({ size: contexto.chart.width < 450 ? 12 : (ehProjetor() ? 16 : 14) }),
+                    },
                 },
             },
         },
@@ -1534,23 +1533,18 @@ function criarGraficoEspeciais(data) {
           `${Math.round(picoEspeciais.pctEspeciais)}% dos Pokémon`
         : "% de Pokémon especiais por ano");
 
-    // Sem nenhuma especial no filtro, a pílula de destaque não tem o que mostrar.
+    // Anotação do pico. Sem nenhuma especial no filtro, não há o que anotar.
     const maior = Math.max(...especiais);
     const indiceMaior = especiais.indexOf(maior);
-    const pilulas = maior > 0
-        ? [{ serie: 0, indice: indiceMaior, texto: `${nomes[indiceMaior]}: ${formatarPercentual(maior)}` }]
+    const rotulos = maior > 0
+        ? [{ serie: 0, indice: indiceMaior, texto: `Pico: ${formatarPercentual(maior)} em ${nomes[indiceMaior]}`, cor: COR_ESPECIAIS }]
         : [];
-
-    if (graficoEspeciais) {
-        graficoEspeciais.destroy();
-    }
-
-    const canvas = document.getElementById("graficoEspeciais");
 
     // Eixo até a dezena acima do pico: com 100%, as diferenças sumiriam.
     const topoDoEixo = Math.min(100, Math.ceil((maior + 5) / 10) * 10);
 
-    graficoEspeciais = new Chart(canvas, {
+    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
+    graficoEspeciais = desenharGrafico(graficoEspeciais, "graficoEspeciais", {
         type: "bar",
         data: {
             labels: nomes,
@@ -1558,17 +1552,19 @@ function criarGraficoEspeciais(data) {
                 {
                     label: "Especiais",
                     data: especiais,
-                    // Só o pico fica forte; os outros anos são contexto.
+                    // Só o pico em laranja; os outros anos são contexto, em cinza.
                     backgroundColor: especiais.map((_valor, indice) =>
-                        indice === indiceMaior ? COR_ESPECIAIS : COR_ESPECIAIS_CLARO),
+                        indice === indiceMaior ? COR_ESPECIAIS : COR_NORMAIS),
                     borderRadius: 2,
                 },
             ],
         },
         options: {
+            // Espaço no alto para a anotação do pico.
+            layout: { padding: { top: 24 } },
             plugins: {
                 legend: { display: false },
-                pilulas: { itens: pilulas },
+                rotulos: { itens: rotulos },
                 tooltip: {
                     callbacks: {
                         label: (contexto) => `Especiais: ${formatarPercentual(contexto.raw)} dos Pokémon`,
@@ -1581,7 +1577,7 @@ function criarGraficoEspeciais(data) {
                     beginAtZero: true,
                     max: topoDoEixo,
                     grid: { color: COR_GRADE },
-                    ticks: { callback: (valor) => `${valor}%` },
+                    ticks: { maxTicksLimit: 5, callback: (valor) => `${valor}%` },
                 },
             },
         },
@@ -1693,19 +1689,8 @@ function preencherAchados(data) {
 }
 
 // ===================================
-// Legendas e medalhas
+// Legenda da rosca
 // ===================================
-
-function criarMedalha(tipo) {
-    const medalha = document.createElement("span");
-
-    medalha.className = `medalha ${tipo}`;
-    medalha.textContent = "★";
-    medalha.setAttribute("role", "img");
-    medalha.setAttribute("aria-label", `Medalha de ${tipo}`);
-
-    return medalha;
-}
 
 function preencherLegenda(idLista, itens) {
     const linhas = itens.map((item) => {
@@ -1734,12 +1719,23 @@ function preencherLegenda(idLista, itens) {
 // ===================================
 // Anotações desenhadas nos gráficos
 // ===================================
-// O Chart.js permite plugins: funções chamadas enquanto ele desenha. Estes três
+// O Chart.js permite plugins: funções chamadas enquanto ele desenha. Estes
 // são pequenos e evitam instalar uma biblioteca de anotações.
 
-// Pílula escura presa a um ponto ou barra, como "HP 143".
-const pluginPilulas = {
-    id: "pilulas",
+// Tela de projetor (1600 px ou mais): letras maiores também dentro dos gráficos.
+function ehProjetor() {
+    return window.matchMedia("(min-width: 1600px)").matches;
+}
+
+function fonteDasAnotacoes(peso) {
+    return `${peso} ${ehProjetor() ? 16 : 14}px ${FONTE}`;
+}
+
+// Rótulo direto (Knaflic): texto curto, na cor da série, preso a um ponto ou barra.
+// Por padrão fica acima do ponto; com "aDireita", fica depois do fim do eixo X,
+// na altura do ponto (usado na ponta das linhas do gráfico 2).
+const pluginRotulos = {
+    id: "rotulos",
     afterDatasetsDraw(chart, argumentos, opcoes) {
         const { ctx, chartArea } = chart;
 
@@ -1751,65 +1747,89 @@ const pluginPilulas = {
             }
 
             ctx.save();
-            ctx.font = "600 12px Poppins, sans-serif";
+            ctx.font = fonteDasAnotacoes(700);
+            ctx.fillStyle = item.cor;
 
-            const largura = ctx.measureText(item.texto).width + 16;
-            const altura = 22;
+            if (item.aDireita) {
+                ctx.textAlign = "left";
+                ctx.textBaseline = "middle";
+                ctx.fillText(item.texto, chartArea.right + 8, elemento.y);
+            } else {
+                // Mantém o texto dentro da área do gráfico.
+                const largura = ctx.measureText(item.texto).width;
+                const x = Math.min(
+                    Math.max(elemento.x, chartArea.left + largura / 2),
+                    chartArea.right - largura / 2
+                );
 
-            // Mantém a pílula dentro da área do gráfico.
-            const x = Math.min(
-                Math.max(elemento.x - largura / 2, chartArea.left),
-                chartArea.right - largura
-            );
-            // "abaixo" põe a pílula sob o ponto, para não cobrir outra pílula acima.
-            const y = item.abaixo
-                ? Math.min(elemento.y + 8, chartArea.bottom - altura)
-                : Math.max(elemento.y - altura - 8, chartArea.top - altura);
-
-            // Pílula escura para valores; clara (contorno) para rótulos secundários.
-            ctx.beginPath();
-            ctx.roundRect(x, y, largura, altura, altura / 2);
-            ctx.fillStyle = item.claro ? COR_PAINEL : COR_TINTA;
-            ctx.fill();
-
-            if (item.claro) {
-                ctx.strokeStyle = COR_NORMAIS_CLARO;
-                ctx.stroke();
+                ctx.textAlign = "center";
+                ctx.textBaseline = "bottom";
+                ctx.fillText(item.texto, x, elemento.y - 6);
             }
 
-            ctx.fillStyle = item.claro ? COR_TEXTO_SUAVE : "#ffffff";
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.fillText(item.texto, x + largura / 2, y + altura / 2);
             ctx.restore();
         });
     },
 };
 
-// Linha vertical tracejada no ano de cada mecânica.
+// Valor escrito na ponta de cada barra horizontal (ranking): dispensa o eixo X.
+const pluginValoresNasBarras = {
+    id: "valoresNasBarras",
+    afterDatasetsDraw(chart, argumentos, opcoes) {
+        if (!opcoes.formatar) {
+            return;
+        }
+
+        const { ctx } = chart;
+        const valores = chart.data.datasets[0].data;
+
+        ctx.save();
+        ctx.font = fonteDasAnotacoes(600);
+        ctx.fillStyle = COR_TINTA;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+
+        chart.getDatasetMeta(0).data.forEach((barra, indice) => {
+            ctx.fillText(opcoes.formatar(valores[indice]), barra.x + 6, barra.y);
+        });
+
+        ctx.restore();
+    },
+};
+
+// Linha vertical tracejada no ano de cada mecânica, com o nome no alto.
 const pluginMecanicas = {
     id: "mecanicas",
     beforeDatasetsDraw(chart, argumentos, opcoes) {
         const { ctx, chartArea, scales } = chart;
 
+        // Fim do último nome escrito em cada uma das 2 linhas de nomes.
+        const fimDaLinha = [-Infinity, -Infinity];
+
         (opcoes.marcos || []).forEach((marco) => {
             const x = scales.x.getPixelForValue(marco.indice);
 
             ctx.save();
-            ctx.strokeStyle = "rgba(28, 27, 24, 0.25)";
+            ctx.strokeStyle = COR_NORMAIS_CLARO;
             ctx.setLineDash([3, 3]);
             ctx.beginPath();
             ctx.moveTo(x, chartArea.top);
             ctx.lineTo(x, chartArea.bottom);
             ctx.stroke();
 
-            // Rótulo na base, à direita da linha: ali não há dados nem pílulas.
+            // Nome da mecânica acima da área do gráfico: ali não cobre nenhum dado.
             ctx.setLineDash([]);
             ctx.fillStyle = COR_TEXTO_SUAVE;
-            ctx.font = "500 11px Poppins, sans-serif";
-            ctx.textAlign = "left";
+            ctx.font = fonteDasAnotacoes(600);
+            ctx.textAlign = "center";
             ctx.textBaseline = "bottom";
-            ctx.fillText(marco.rotulo, x + 4, chartArea.bottom - 4);
+
+            // Em tela estreita, um nome que encostaria no anterior sobe para a 2ª linha.
+            const meiaLargura = ctx.measureText(marco.rotulo).width / 2;
+            const linha = x - meiaLargura > fimDaLinha[0] + 6 ? 0 : 1;
+
+            fimDaLinha[linha] = x + meiaLargura;
+            ctx.fillText(marco.rotulo, x, chartArea.top - 6 - linha * 18);
             ctx.restore();
         });
     },
@@ -1824,24 +1844,25 @@ const pluginRotulosNasFatias = {
         }
 
         const { ctx } = chart;
-        const valores = chart.data.datasets[0].data;
+        const conjunto = chart.data.datasets[0];
 
         chart.getDatasetMeta(0).data.forEach((fatia, indice) => {
             // Fatias muito finas não têm espaço para texto.
-            if (valores[indice] < 8) {
+            if (conjunto.data[indice] < 8) {
                 return;
             }
 
             const { x, y } = fatia.tooltipPosition();
 
             ctx.save();
-            ctx.fillStyle = "#ffffff";
+            // Texto branco no laranja; escuro no cinza, para ter contraste.
+            ctx.fillStyle = conjunto.backgroundColor[indice] === COR_ESPECIAIS ? "#ffffff" : COR_TINTA;
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
-            ctx.font = "600 13px Poppins, sans-serif";
-            ctx.fillText(chart.data.labels[indice], x, y - 10);
-            ctx.font = "700 20px Poppins, sans-serif";
-            ctx.fillText(`${Math.round(valores[indice])}%`, x, y + 12);
+            ctx.font = fonteDasAnotacoes(600);
+            ctx.fillText(chart.data.labels[indice], x, y - 12);
+            ctx.font = `700 ${ehProjetor() ? 28 : 20}px ${FONTE}`;
+            ctx.fillText(`${Math.round(conjunto.data[indice])}%`, x, y + 12);
             ctx.restore();
         });
     },
@@ -1863,10 +1884,10 @@ const pluginCentro = {
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = COR_TINTA;
-        ctx.font = "700 20px Poppins, sans-serif";
-        ctx.fillText(opcoes.valor, x, y - 8);
+        ctx.font = `700 ${ehProjetor() ? 22 : 20}px ${FONTE}`;
+        ctx.fillText(opcoes.valor, x, y - 9);
         ctx.fillStyle = COR_TEXTO_SUAVE;
-        ctx.font = "400 12px Poppins, sans-serif";
+        ctx.font = fonteDasAnotacoes(400);
         ctx.fillText(opcoes.rotulo, x, y + 12);
         ctx.restore();
     },
@@ -1877,36 +1898,37 @@ const pluginCentro = {
 // ===================================
 
 function configurarChart() {
-    Chart.register(pluginPilulas, pluginMecanicas, pluginCentro, pluginRotulosNasFatias);
+    Chart.register(pluginRotulos, pluginValoresNasBarras, pluginMecanicas, pluginCentro, pluginRotulosNasFatias);
 
     // maintainAspectRatio: false faz o gráfico ocupar a altura definida no CSS.
     Chart.defaults.maintainAspectRatio = false;
-    Chart.defaults.font.family = "Poppins, sans-serif";
+    Chart.defaults.font.family = FONTE;
     // No projetor (tela larga), letras maiores nos gráficos.
-    Chart.defaults.font.size = window.matchMedia("(min-width: 1600px)").matches ? 14 : 12;
+    Chart.defaults.font.size = ehProjetor() ? 16 : 14;
     Chart.defaults.color = COR_TEXTO_SUAVE;
 
-    // Animação curta: com filtros, os gráficos são redesenhados a cada clique.
-    // Quem pede menos movimento no sistema não vê animação nenhuma.
+    // Ao trocar um filtro, os gráficos animam do valor antigo para o novo em
+    // 500 ms (ver desenharGrafico). Quem pede menos movimento no sistema não
+    // vê animação nenhuma.
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
         Chart.defaults.animation = false;
     } else {
-        Chart.defaults.animation.duration = 300;
+        Chart.defaults.animation.duration = 500;
+        Chart.defaults.animation.easing = "easeOutQuart";
     }
+
+    // Knaflic: sem bordas nos eixos. A grade horizontal (bem clara) é definida em cada gráfico.
+    Chart.defaults.scale.border.display = false;
 
     // Anos na horizontal: sem espaço, o Chart.js pula alguns em vez de inclinar.
     Chart.defaults.scale.ticks.maxRotation = 0;
 
-    Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.pointStyle = "circle";
-    Chart.defaults.plugins.legend.labels.boxHeight = 7;
-
-    // Tooltip escuro e arredondado, no estilo das pílulas.
+    // Tooltip escuro e discreto.
     Chart.defaults.plugins.tooltip.backgroundColor = COR_TINTA;
-    Chart.defaults.plugins.tooltip.cornerRadius = 12;
+    Chart.defaults.plugins.tooltip.cornerRadius = 6;
     Chart.defaults.plugins.tooltip.padding = 10;
-    Chart.defaults.plugins.tooltip.titleFont = { family: "Poppins, sans-serif", weight: "600" };
-    Chart.defaults.plugins.tooltip.bodyFont = { family: "Poppins, sans-serif" };
+    Chart.defaults.plugins.tooltip.titleFont = { family: FONTE, weight: "600" };
+    Chart.defaults.plugins.tooltip.bodyFont = { family: FONTE };
 }
 
 // ===================================
@@ -2129,6 +2151,9 @@ async function carregarDados() {
         // Só desenhamos com os dados completos: número parcial na tela seria
         // pior do que nenhum número. Os filtros também só ligam aqui.
         if (atualizarConsistencia(totalNoBanco)) {
+            // Os gráficos medem os rótulos com a fonte da página: esperamos ela carregar.
+            await document.fonts.ready;
+
             mostrarConcluido();
             mostrarGraficos();
             preencherOpcoesDosFiltros();

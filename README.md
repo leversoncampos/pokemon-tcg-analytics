@@ -39,6 +39,7 @@ Valores do painel sem filtros, com as coleções de promos fora das contas (ver 
 | Dashboard | HTML, CSS e JavaScript puro |
 | Gráficos | Chart.js 4 |
 | Acesso ao banco no navegador | Supabase JS v2, com paginação em blocos de 1.000 (`.range()` + `.order("id")`) |
+| Conferência dos números da tela | Node.js (controla o Chrome) + pandas |
 
 ## Estrutura de pastas
 
@@ -52,7 +53,9 @@ dashboard-pokemon-tcg/
 │   ├── 01_exploracao.py              exploração e relatório de qualidade dos dados
 │   ├── criar_tabela.sql              tabela "cartas", RLS e permissões
 │   ├── 02_limpeza_e_carga.py         limpeza e carga no Supabase em lotes (upsert)
-│   └── 03_teste_escrita_bloqueada.py prova que a chave pública não escreve no banco
+│   ├── 03_teste_escrita_bloqueada.py prova que a chave pública não escreve no banco
+│   ├── 04_conferencia_tela.mjs       lê o que o dashboard mostra em 13 combinações de filtros
+│   └── 04_conferencia_python.py      confere a tela contra um cálculo independente em Python
 ├── web/
 │   ├── index.html            estrutura do dashboard
 │   ├── style.css             visual e responsividade
@@ -162,12 +165,34 @@ python scripts/03_teste_escrita_bloqueada.py
 O script tenta inserir, alterar e apagar com a chave pública; o banco deve recusar as 3 tentativas
 (erro 42501).
 
+### 8. (Opcional) Conferir os números da tela
+
+Prova que o que o dashboard mostra bate com um cálculo feito à parte, em Python. Precisa do
+**Node.js 22 ou mais novo**, do **Google Chrome** e do CSV em `dados/`. Nenhum dos dois scripts usa
+chave: a página usa a própria chave pública, e o Python lê só o CSV.
+
+```bash
+node scripts/04_conferencia_tela.mjs           # parte 1: abre o dashboard e salva a tela em JSON
+python scripts/04_conferencia_python.py        # parte 2: refaz as contas e compara
+```
+
+- A parte 1 abre `web/index.html` no Chrome sem janela, espera as 17.172 cartas chegarem do Supabase,
+  aplica 13 combinações de filtros e salva os textos e os dados dos 7 gráficos em
+  `conferencia-tela.json`, na pasta temporária do sistema. Também avisa se houver erro de JavaScript.
+- A parte 2 limpa o CSV com as mesmas funções de `02_limpeza_e_carga.py`, refaz cada conta com pandas
+  e compara com a tela. O esperado é **1.088 checagens iguais, 0 divergências**.
+- Opcional: a parte 1 também tira prints e diz se a página rola para o lado. Passe o arquivo de saída
+  e pares de print e largura:
+  `node scripts/04_conferencia_tela.mjs tela.json print-1920.png 1920 print-375.png 375`
+  (depois, `python scripts/04_conferencia_python.py tela.json`).
+- Se o Chrome estiver instalado em outro lugar, informe o caminho na variável de ambiente `CHROME`.
+
 ## Consistência dos dados
 
 - O dashboard mostra o total de cartas no banco (`count: 'exact'`) ao lado do total carregado pela
   paginação: 17.172 × 17.172.
-- Os valores da tela foram conferidos contra um cálculo independente em Python, a partir do CSV, em
-  13 combinações de filtros.
+- Os valores da tela são conferidos contra um cálculo independente em Python, a partir do CSV, em
+  13 combinações de filtros: 1.088 checagens, 0 divergências (ver "Conferir os números da tela").
 
 ## Limitações
 
