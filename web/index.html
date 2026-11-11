@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evolução do Pokémon TCG</title>
+    <meta name="description" content="Dashboard com 25 anos de cartas do Pokémon TCG, lidas em tempo real do Supabase.">
+
+    <!--Fonte: Poppins, a sans geométrica da referência visual-->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="style.css">
+
+    <!--Chart.js e Supabase: versões exatas, para o dashboard não mudar sozinho-->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.118.0/dist/umd/supabase.js"></script>
+</head>
+<body>
+
+    <div class="mesa">
+
+        <!--Cabeçalho: título, atalhos por era e o botão de filtros do celular-->
+        <header class="topo">
+            <div class="topo-titulo">
+                <h1>Evolução do Pokémon TCG</h1>
+                <p>Em 25 anos, o HP médio das cartas Pokémon quase dobrou, puxado principalmente pelas cartas especiais.</p>
+            </div>
+
+            <div class="topo-controles">
+                <!--Cada atalho preenche o período com os anos de uma era (ver ERAS em script.js)-->
+                <nav class="pilulas" aria-label="Atalhos por era">
+                    <button type="button" class="pilula ativa" data-era="todas" aria-pressed="true" disabled>Todas as eras</button>
+                    <button type="button" class="pilula" data-era="0" aria-pressed="false" disabled>1999–2006</button>
+                    <button type="button" class="pilula" data-era="1" aria-pressed="false" disabled>2007–2016</button>
+                    <button type="button" class="pilula" data-era="2" aria-pressed="false" disabled>2017–2023</button>
+                </nav>
+
+                <!--Só aparece no celular, onde os filtros ficam numa gaveta-->
+                <button type="button" class="botao-filtros" id="botaoAbrirFiltros"
+                        aria-controls="painelFiltros" aria-expanded="false" disabled>
+                    Filtros <span class="botao-filtros-contagem" id="contagemFiltros"></span>
+                </button>
+            </div>
+        </header>
+
+        <!--Aviso de carregamento e de erro. aria-live faz o leitor de tela anunciar as mudanças-->
+        <section class="aviso" id="aviso" aria-live="polite">
+            <div class="aviso-linha">
+                <p class="aviso-texto" id="avisoTexto">Conectando ao banco...</p>
+                <button type="button" class="botao-escuro" id="botaoTentarNovamente" hidden>Tentar novamente</button>
+            </div>
+            <div class="barra" id="barra" role="progressbar" aria-label="Cartas carregadas"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <div class="barra-preenchida" id="barraPreenchida"></div>
+            </div>
+        </section>
+
+        <div class="colunas">
+
+            <!--Coluna principal-->
+            <main class="principal">
+
+                <!--Aparece quando nenhum filtro combina com nenhuma carta-->
+                <section class="sem-resultado" id="semResultado" role="status" hidden>
+                    <p><strong>Nenhuma carta combina com esses filtros.</strong> Mude um filtro ou comece de novo.</p>
+                    <button type="button" class="botao-escuro" id="botaoLimparSemResultado">Limpar filtros</button>
+                </section>
+
+                <!--Indicadores: calculados em script.js a partir das cartas filtradas-->
+                <section class="indicadores" aria-label="Indicadores">
+                    <article class="painel indicador">
+                        <h2>Total de cartas</h2>
+                        <p class="indicador-valor" id="kpiTotal">—</p>
+                        <p class="indicador-nota" id="notaTotal">no filtro atual</p>
+                    </article>
+
+                    <article class="painel indicador">
+                        <h2>HP médio</h2>
+                        <p class="indicador-valor" id="kpiHp">—</p>
+                        <p class="indicador-nota">só cartas Pokémon</p>
+                    </article>
+
+                    <article class="painel indicador">
+                        <h2>Crescimento do HP</h2>
+                        <p class="indicador-valor" id="kpiCrescimento">—</p>
+                        <p class="indicador-nota" id="notaCrescimento">primeiro × último ano</p>
+                        <span class="selo" id="seloCrescimento" hidden></span>
+                    </article>
+
+                    <article class="painel indicador medidor">
+                        <h2>Cartas especiais</h2>
+                        <!--Arco do medidor: a parte preenchida entra com os dados-->
+                        <svg class="medidor-arco" viewBox="0 0 120 68" aria-hidden="true">
+                            <path class="medidor-trilho" d="M 10 62 A 50 50 0 0 1 110 62" pathLength="100"></path>
+                            <path class="medidor-valor vazio" id="medidorValor" d="M 10 62 A 50 50 0 0 1 110 62" pathLength="100"></path>
+                        </svg>
+                        <p class="indicador-valor" id="kpiEspeciais">—</p>
+                        <p class="indicador-nota">dos Pokémon</p>
+                    </article>
+                </section>
+
+                <!--Gráfico principal, em largura total-->
+                <section class="painel grafico grafico-destaque" aria-labelledby="titulo2">
+                    <h2 id="titulo2">HP médio por ano: normais × especiais</h2>
+                    <div class="area-grafico alta">
+                        <canvas id="graficoHpPorAno" hidden></canvas>
+                        <p class="aguardando">Aguardando os dados</p>
+                    </div>
+                    <p class="grafico-nota">Linhas tracejadas: tendência por regressão linear simples, não é previsão.</p>
+                </section>
+
+                <div class="grade-graficos">
+
+                    <section class="painel grafico" aria-labelledby="titulo7">
+                        <h2 id="titulo7">% de cartas especiais por ano</h2>
+                        <div class="area-grafico">
+                            <canvas id="graficoEspeciais" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                    </section>
+
+                    <section class="painel grafico" aria-labelledby="titulo3">
+                        <h2 id="titulo3">De onde veio o ganho de HP</h2>
+                        <div class="area-grafico">
+                            <canvas id="graficoGanho" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <p class="grafico-nota" id="notaGanho" hidden></p>
+                    </section>
+                    <section class="painel grafico" aria-labelledby="titulo1">
+                        <h2 id="titulo1">Cartas lançadas por ano</h2>
+                        <div class="area-grafico">
+                            <canvas id="graficoCartasPorAno" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <p class="grafico-nota">Inclui reimpressões e variantes.</p>
+                    </section>
+
+                    <section class="painel grafico" aria-labelledby="titulo4">
+                        <h2 id="titulo4">Distribuição por faixa de raridade</h2>
+                        <div class="area-grafico">
+                            <canvas id="graficoRaridade" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <ul class="legenda legenda-coluna" id="legendaRaridade" aria-label="Raras por era"></ul>
+                        <p class="grafico-nota" id="notaRaridade" hidden></p>
+                    </section>
+
+                    <!--Ranking das coleções: barras e lista com medalhas-->
+                    <section class="painel grafico grafico-largo" aria-labelledby="titulo5">
+                        <h2 id="titulo5">Coleções com maior HP médio</h2>
+                        <div class="grafico-com-ranking">
+                            <div class="area-grafico area-ranking">
+                                <canvas id="graficoColecoes" hidden></canvas>
+                                <p class="aguardando">Aguardando os dados</p>
+                            </div>
+                            <ol class="ranking" id="rankingColecoes" aria-label="Ranking das coleções por HP médio">
+                                <li class="aguardando">Aguardando os dados</li>
+                            </ol>
+                        </div>
+                        <p class="grafico-nota" id="notaColecoes"></p>
+                    </section>
+
+                    <section class="painel grafico grafico-largo" aria-labelledby="titulo6">
+                        <h2 id="titulo6">Perfil das eras</h2>
+                        <div class="area-grafico alta">
+                            <canvas id="graficoEras" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <p class="grafico-nota">100 = maior valor entre as duas eras (reais no tooltip). % raras usa todas as cartas; % especiais, só os Pokémon.</p>
+                    </section>
+                </div>
+            </main>
+
+            <!--Coluna lateral-->
+            <aside class="lateral">
+
+                <!--No celular, esta seção vira uma gaveta aberta pelo botão "Filtros" do topo-->
+                <section class="painel filtros" id="painelFiltros" aria-labelledby="tituloFiltros">
+                    <div class="filtros-topo">
+                        <h2 id="tituloFiltros">Filtros</h2>
+                        <button type="button" class="botao-fechar" id="botaoFecharFiltros">Ver resultados</button>
+                    </div>
+
+                    <!--Quantas cartas passam nos filtros, de quantas carregadas-->
+                    <p class="filtros-resumo" id="resumoFiltro" role="status">—</p>
+
+                    <div class="filtros-periodo">
+                        <label class="campo">
+                            <span>De</span>
+                            <select id="filtroAnoInicial" disabled></select>
+                        </label>
+                        <label class="campo">
+                            <span>Até</span>
+                            <select id="filtroAnoFinal" disabled></select>
+                        </label>
+                    </div>
+
+                    <!--As opções de tipo são montadas em script.js-->
+                    <label class="campo">
+                        <span>Tipo</span>
+                        <select id="filtroTipo" disabled>
+                            <option value="todos">Todos</option>
+                        </select>
+                    </label>
+                    <!--Um só campo para o tipo de carta: evita combinações impossíveis-->
+                    <label class="campo">
+                        <span>Cartas</span>
+                        <select id="filtroCartas" disabled>
+                            <option value="todas">Todas as cartas</option>
+                            <option value="pokemon">Só Pokémon</option>
+                            <option value="normais">Pokémon normais</option>
+                            <option value="especiais">Pokémon especiais</option>
+                            <option value="treinador">Treinadores</option>
+                            <option value="energia">Energias</option>
+                        </select>
+                    </label>
+
+                    <!--Promos ficam desligadas por padrão. O motivo aparece logo abaixo-->
+                    <label class="interruptor">
+                        <input type="checkbox" id="filtroPromos" role="switch" disabled>
+                        <span class="interruptor-visual" aria-hidden="true"></span>
+                        <span>Incluir promos (datas imprecisas)</span>
+                    </label>
+                    <p class="filtros-nota">Promos têm uma só data por coleção e criariam picos falsos: ficam fora por padrão.</p>
+
+                    <button type="button" class="botao-claro" id="botaoLimparFiltros" disabled>Limpar filtros</button>
+                </section>
+
+                <section class="painel achados" aria-labelledby="tituloAchados">
+                    <h2 id="tituloAchados">O que os dados mostram</h2>
+                    <ul class="achados-lista" id="listaAchados">
+                        <li class="aguardando">Aguardando os dados</li>
+                    </ul>
+                </section>
+
+                <!--Contador de consistência: não depende de nenhum filtro-->
+                <section class="consistencia" aria-labelledby="tituloConsistencia">
+                    <div class="consistencia-topo">
+                        <h2 id="tituloConsistencia">Consistência dos dados</h2>
+                        <span class="selo selo-neutro" id="seloConsistencia">Verificando</span>
+                    </div>
+                    <dl class="consistencia-numeros">
+                        <div>
+                            <dt>No banco</dt>
+                            <dd id="contadorBanco">—</dd>
+                        </div>
+                        <div>
+                            <dt>Carregadas</dt>
+                            <dd id="contadorCarregadas">—</dd>
+                        </div>
+                        <div>
+                            <dt>IDs únicos</dt>
+                            <dd id="contadorUnicos">—</dd>
+                        </div>
+                    </dl>
+                    <p class="consistencia-nota">Contagem direta na nuvem. Não muda com os filtros.</p>
+                </section>
+            </aside>
+        </div>
+
+        <!--Limitações da análise, num só lugar-->
+        <section class="limitacoes" aria-labelledby="tituloLimitacoes">
+            <h2 id="tituloLimitacoes">Limitações</h2>
+            <ul id="listaLimitacoes">
+                <li>A força é medida só pelo HP: ataques e habilidades ficam de fora.</li>
+                <li>A data é da coleção, não da carta; por isso as promos ficam fora por padrão.</li>
+                <li>As contagens incluem variantes e reimpressões.</li>
+                <li id="limiteData">O último ano pode estar incompleto.</li>
+                <li>Não há preços. Os dados são consistentes com as leituras, mas não provam causa.</li>
+            </ul>
+        </section>
+
+        <footer class="rodape">
+            <p>
+                Dados: <a href="https://www.kaggle.com/datasets/adampq/pokemon-tcg-all-cards-1999-2023">Pokemon TCG
+                All Cards 1999-2023</a> (Kaggle, uso acadêmico). Projeto de fãs, sem vínculo com as marcas citadas.
+            </p>
+            <p>Tópicos Especiais em Informática · Fatec Lins</p>
+        </footer>
+    </div>
+
+    <!--Fundo escuro atrás da gaveta de filtros, no celular. Um toque nele fecha a gaveta-->
+    <div class="fundo-gaveta" id="fundoGaveta" hidden></div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,44 @@
+# ==================================
+# Credenciais: nunca vão para o git
+# ==================================
+.env
+.env.*
+!.env.example
+
+# ==================================
+# Ambiente virtual e arquivos gerados pelo Python
+# ==================================
+.venv*/
+__pycache__/
+*.pyc
+
+# ==================================
+# Dados: o CSV é baixado do Kaggle (ver README.md)
+# ==================================
+dados/*.csv
+
+# ==================================
+# Arquivos de uso interno da dupla
+# ==================================
+referencias/enunciado-trabalho.pdf
+referencias/codigo-professor/
+
+# ==================================
+# Arquivos temporários de teste
+# ==================================
+tmp/
+temp/
+*.tmp
+*.log
+*.bak
+*~
+.ipynb_checkpoints/
+
+# ==================================
+# Editor e sistema operacional
+# ==================================
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
