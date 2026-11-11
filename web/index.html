@@ -9,7 +9,7 @@
     <!--Uma única fonte, sóbria e legível: Source Sans 3-->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="style.css">
 
@@ -67,25 +67,13 @@
                 </div>
             </div>
 
-            <!--As opções de tipo são montadas em script.js-->
+            <!--As opções de tipo são montadas em script.js. A nota diz como o tipo é lido-->
             <label class="campo">
                 <span>Tipo</span>
-                <select id="filtroTipo" disabled>
+                <select id="filtroTipo" aria-describedby="notaTipo" disabled>
                     <option value="todos">Todos</option>
                 </select>
-            </label>
-
-            <!--Um só campo para o tipo de carta: evita combinações impossíveis-->
-            <label class="campo">
-                <span>Cartas</span>
-                <select id="filtroCartas" disabled>
-                    <option value="todas">Todas as cartas</option>
-                    <option value="pokemon">Só Pokémon</option>
-                    <option value="normais">Pokémon normais</option>
-                    <option value="especiais">Pokémon especiais</option>
-                    <option value="treinador">Treinadores</option>
-                    <option value="energia">Energias</option>
-                </select>
+                <small class="campo-nota" id="notaTipo">1º tipo da carta; só Pokémon</small>
             </label>
 
             <!--Promos ficam desligadas por padrão (o motivo está nas limitações)-->
@@ -129,7 +117,7 @@
                 <article class="cartao indicador">
                     <h2>HP médio</h2>
                     <p class="indicador-valor" id="kpiHp">—</p>
-                    <p class="indicador-nota">só cartas Pokémon</p>
+                    <p class="indicador-nota">média de todas as cartas Pokémon do período</p>
                 </article>
 
                 <article class="cartao indicador">
@@ -151,82 +139,112 @@
                 </article>
             </section>
 
-            <!--Os gráficos seguem a ordem da história: força, frequência, causa, volume, raridade, coleções, eras-->
-            <section class="cartao grafico grafico-largo" aria-labelledby="titulo2">
-                <h2 id="titulo2">HP médio por ano: normais × especiais</h2>
-                <div class="area-grafico alta">
-                    <canvas id="graficoHpPorAno" hidden></canvas>
-                    <p class="aguardando">Aguardando os dados</p>
-                </div>
-                <p class="grafico-nota">Linhas tracejadas: tendência por regressão linear simples, não é previsão.</p>
-            </section>
-
-            <div class="grade-graficos">
-                <section class="cartao grafico" aria-labelledby="titulo7">
-                    <h2 id="titulo7">% de cartas especiais por ano</h2>
-                    <div class="area-grafico">
-                        <canvas id="graficoEspeciais" hidden></canvas>
+            <!--A história em 3 partes: o HP subiu, por quê, e o que mais mudou-->
+            <section class="capitulo" aria-labelledby="capitulo1">
+                <h2 class="capitulo-titulo" id="capitulo1">O HP subiu</h2>
+                <section class="cartao grafico grafico-largo" aria-labelledby="titulo2">
+                    <h3 id="titulo2">HP médio por ano: normais × especiais</h3>
+                    <p class="grafico-subtitulo" id="subtitulo2">HP médio por ano, só Pokémon</p>
+                    <div class="area-grafico alta">
+                        <canvas id="graficoHpPorAno" hidden></canvas>
                         <p class="aguardando">Aguardando os dados</p>
                     </div>
                 </section>
 
-                <section class="cartao grafico" aria-labelledby="titulo3">
-                    <h2 id="titulo3">De onde veio o ganho de HP</h2>
-                    <div class="area-grafico">
-                        <canvas id="graficoGanho" hidden></canvas>
-                        <p class="aguardando">Aguardando os dados</p>
-                    </div>
-                    <p class="grafico-nota" id="notaGanho" hidden></p>
-                </section>
-
-                <section class="cartao grafico" aria-labelledby="titulo1">
-                    <h2 id="titulo1">Cartas lançadas por ano</h2>
-                    <div class="area-grafico">
-                        <canvas id="graficoCartasPorAno" hidden></canvas>
-                        <p class="aguardando">Aguardando os dados</p>
-                    </div>
-                    <p class="grafico-nota">Inclui reimpressões e variantes.</p>
-                </section>
-
-                <section class="cartao grafico" aria-labelledby="titulo4">
-                    <h2 id="titulo4">Distribuição por faixa de raridade</h2>
-                    <div class="grafico-com-tabela">
-                        <div class="area-grafico">
-                            <canvas id="graficoRaridade" hidden></canvas>
-                            <p class="aguardando">Aguardando os dados</p>
-                        </div>
-                        <ul class="legenda" id="legendaRaridade" aria-label="Raras por era"></ul>
-                    </div>
-                    <p class="grafico-nota" id="notaRaridade" hidden></p>
-                </section>
-
-                <!--Ranking: os rótulos (nome, ano e HP) ficam nas próprias barras-->
                 <section class="cartao grafico grafico-largo" aria-labelledby="titulo5">
-                    <h2 id="titulo5">Coleções com maior HP médio</h2>
+                    <h3 id="titulo5">Coleções com maior HP médio</h3>
+                    <p class="grafico-subtitulo" id="subtitulo5">HP médio dos Pokémon de cada coleção · mín. 50 Pokémon</p>
                     <div class="area-grafico area-ranking">
                         <canvas id="graficoColecoes" hidden></canvas>
                         <p class="aguardando">Aguardando os dados</p>
                     </div>
-                    <p class="grafico-nota" id="notaColecoes"></p>
                 </section>
+            </section>
 
-                <section class="cartao grafico" aria-labelledby="titulo6">
-                    <h2 id="titulo6">Perfil das eras</h2>
-                    <div class="area-grafico alta">
-                        <canvas id="graficoEras" hidden></canvas>
-                        <p class="aguardando">Aguardando os dados</p>
-                    </div>
-                    <!--As cores das eras são explicadas aqui, no lugar da legenda-->
-                    <p class="grafico-nota" id="notaEras"></p>
-                </section>
+            <section class="capitulo" aria-labelledby="capitulo2">
+                <h2 class="capitulo-titulo" id="capitulo2">Por quê</h2>
+                <div class="grade-graficos">
+                    <section class="cartao grafico" aria-labelledby="titulo7">
+                        <h3 id="titulo7">% de cartas especiais por ano</h3>
+                        <p class="grafico-subtitulo">% dos Pokémon de cada ano que são especiais</p>
+                        <div class="area-grafico">
+                            <canvas id="graficoEspeciais" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                    </section>
 
-                <section class="cartao achados" aria-labelledby="tituloAchados">
-                    <h2 id="tituloAchados">O que os dados mostram</h2>
-                    <ul class="achados-lista" id="listaAchados">
-                        <li class="aguardando">Aguardando os dados</li>
-                    </ul>
-                </section>
-            </div>
+                    <section class="cartao grafico" aria-labelledby="titulo3">
+                        <h3 id="titulo3">De onde veio o ganho de HP</h3>
+                        <p class="grafico-subtitulo">Ganho do HP médio dos Pokémon entre o primeiro e o último ano do período</p>
+                        <!--Pizza pequena e, ao lado, o número que conta a história-->
+                        <div class="ganho">
+                            <div class="area-grafico area-pizza">
+                                <canvas id="graficoGanho" hidden></canvas>
+                                <p class="aguardando">Aguardando os dados</p>
+                            </div>
+                            <div class="ganho-destaque" id="notaGanho" hidden>
+                                <p id="ganhoRotulo">Sem as especiais, a média do último ano seria</p>
+                                <p class="ganho-numero" id="ganhoSem">—</p>
+                                <p>e não <strong id="ganhoCom">—</strong></p>
+                            </div>
+                        </div>
+                    </section>
+                </div>
+            </section>
+
+            <section class="capitulo" aria-labelledby="capitulo3">
+                <h2 class="capitulo-titulo" id="capitulo3">O que mais mudou</h2>
+                <div class="grade-graficos">
+                    <section class="cartao grafico" aria-labelledby="titulo1">
+                        <h3 id="titulo1">Cartas lançadas por ano</h3>
+                        <p class="grafico-subtitulo">Todas as cartas (Pokémon, Treinadores e Energias), com reimpressões e variantes</p>
+                        <div class="area-grafico">
+                            <canvas id="graficoCartasPorAno" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                    </section>
+
+                    <section class="cartao grafico" aria-labelledby="titulo4">
+                        <h3 id="titulo4">Distribuição por faixa de raridade</h3>
+                        <p class="grafico-subtitulo">% de todas as cartas (Pokémon, Treinadores e Energias) · raras = Holo ou acima</p>
+                        <!--Duas roscas do mesmo tamanho: a primeira e a última era do filtro-->
+                        <div class="roscas">
+                            <figure class="rosca" id="roscaInicial">
+                                <figcaption class="rosca-titulo" id="tituloRoscaInicial">1999–2006</figcaption>
+                                <div class="area-grafico area-rosca">
+                                    <canvas id="graficoRaridade" hidden></canvas>
+                                    <p class="aguardando">Aguardando os dados</p>
+                                </div>
+                            </figure>
+                            <figure class="rosca" id="roscaRecente">
+                                <figcaption class="rosca-titulo" id="tituloRoscaRecente">2017–2023</figcaption>
+                                <div class="area-grafico area-rosca">
+                                    <canvas id="graficoRaridadeRecente" hidden></canvas>
+                                    <p class="aguardando">Aguardando os dados</p>
+                                </div>
+                            </figure>
+                        </div>
+                    </section>
+
+                    <section class="cartao grafico" aria-labelledby="titulo6">
+                        <h3 id="titulo6">Perfil das eras</h3>
+                        <p class="grafico-subtitulo">Quantas vezes cada valor da era recente é o da antiga · HP e % especiais: só Pokémon · cartas por ano e % raras: todas as cartas</p>
+                        <div class="area-grafico alta">
+                            <canvas id="graficoEras" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <!--As cores das eras são explicadas aqui, no lugar da legenda-->
+                        <p class="grafico-nota" id="notaEras"></p>
+                    </section>
+
+                    <section class="cartao achados" aria-labelledby="tituloAchados">
+                        <h3 id="tituloAchados">O que os dados mostram</h3>
+                        <ul class="achados-lista" id="listaAchados">
+                            <li class="aguardando">Aguardando os dados</li>
+                        </ul>
+                    </section>
+                </div>
+            </section>
         </main>
 
         <!--Rodapé: limitações da análise e prova de integridade dos dados-->

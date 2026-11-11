@@ -2,7 +2,7 @@
 // Conferência da tela (parte 1 de 2): o que o dashboard mostra
 // ==================================
 // Abre web/index.html no Google Chrome sem janela (modo headless), espera as
-// 17.172 cartas chegarem do Supabase e aplica 13 combinações de filtros. Em cada
+// 17.172 cartas chegarem do Supabase e aplica 14 combinações de filtros. Em cada
 // uma, salva num JSON os textos da tela (KPIs, títulos, notas, achados) e os
 // dados dos 7 gráficos. A parte 2 (04_conferencia_python.py) compara esse JSON
 // com um cálculo independente em Python.
@@ -47,23 +47,24 @@ const [saida = SAIDA_PADRAO, ...prints] = process.argv.slice(2);
 // ==================================
 // Combinações de filtros testadas
 // ==================================
-// Cobrem o padrão, as promos, as 3 eras, um tipo, cada opção de "Cartas",
-// um período de um ano só e combinações com poucos dados.
+// Cobrem o padrão, as promos, as 3 eras, um período que corta eras, anos
+// isolados, tipos com e sem promos e tipos com poucos dados.
 
 const COMBINACOES = [
-    { nome: "padrao", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "todas", promos: false },
-    { nome: "com promos", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "todas", promos: true },
-    { nome: "era 1999-2006", anoInicial: 1999, anoFinal: 2006, tipo: "todos", cartas: "todas", promos: false },
-    { nome: "era 2007-2016", anoInicial: 2007, anoFinal: 2016, tipo: "todos", cartas: "todas", promos: false },
-    { nome: "era 2017-2023", anoInicial: 2017, anoFinal: 2023, tipo: "todos", cartas: "todas", promos: false },
-    { nome: "fogo", anoInicial: 1999, anoFinal: 2023, tipo: "Fire", cartas: "todas", promos: false },
-    { nome: "especiais", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "especiais", promos: false },
-    { nome: "normais", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "normais", promos: false },
-    { nome: "treinadores", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "treinador", promos: false },
-    { nome: "energias", anoInicial: 1999, anoFinal: 2023, tipo: "todos", cartas: "energia", promos: true },
-    { nome: "agua 2010-2015 promos", anoInicial: 2010, anoFinal: 2015, tipo: "Water", cartas: "todas", promos: true },
-    { nome: "so 2005", anoInicial: 2005, anoFinal: 2005, tipo: "todos", cartas: "todas", promos: false },
-    { nome: "dragao pokemon 2012-2023", anoInicial: 2012, anoFinal: 2023, tipo: "Dragon", cartas: "pokemon", promos: false },
+    { nome: "padrao", anoInicial: 1999, anoFinal: 2023, tipo: "todos", promos: false },
+    { nome: "com promos", anoInicial: 1999, anoFinal: 2023, tipo: "todos", promos: true },
+    { nome: "era 1999-2006", anoInicial: 1999, anoFinal: 2006, tipo: "todos", promos: false },
+    { nome: "era 2007-2016", anoInicial: 2007, anoFinal: 2016, tipo: "todos", promos: false },
+    { nome: "era 2017-2023", anoInicial: 2017, anoFinal: 2023, tipo: "todos", promos: false },
+    { nome: "2005-2018 (corta eras)", anoInicial: 2005, anoFinal: 2018, tipo: "todos", promos: false },
+    { nome: "2016-2017", anoInicial: 2016, anoFinal: 2017, tipo: "todos", promos: true },
+    { nome: "so 2005", anoInicial: 2005, anoFinal: 2005, tipo: "todos", promos: false },
+    { nome: "so 2023", anoInicial: 2023, anoFinal: 2023, tipo: "todos", promos: true },
+    { nome: "fogo", anoInicial: 1999, anoFinal: 2023, tipo: "Fire", promos: false },
+    { nome: "fogo com promos", anoInicial: 1999, anoFinal: 2023, tipo: "Fire", promos: true },
+    { nome: "agua 2010-2015 promos", anoInicial: 2010, anoFinal: 2015, tipo: "Water", promos: true },
+    { nome: "dragao 2012-2023", anoInicial: 2012, anoFinal: 2023, tipo: "Dragon", promos: false },
+    { nome: "fada", anoInicial: 1999, anoFinal: 2023, tipo: "Fairy", promos: false },
 ];
 
 // ==================================
@@ -76,21 +77,23 @@ const FOTOGRAFAR_TELA = `(combinacao) => {
     filtroAnoInicial.value = combinacao.anoInicial;
     filtroAnoFinal.value = combinacao.anoFinal;
     filtroTipo.value = combinacao.tipo;
-    filtroCartas.value = combinacao.cartas;
     filtroPromos.checked = combinacao.promos;
     aplicarFiltros();
 
     const texto = (id) => {
         const elemento = document.getElementById(id);
-        return elemento ? elemento.textContent.replace(/\\s+/g, " ").trim() : null;
+        if (!elemento) return null;
+        // Texto escondido na tela não conta como mostrado.
+        if (elemento.closest("[hidden]")) return "(oculto)";
+        return elemento.textContent.replace(/\\s+/g, " ").trim();
     };
     const ids = ["kpiTotal", "kpiHp", "kpiCrescimento", "notaCrescimento", "kpiEspeciais", "resumoFiltro",
         "titulo1", "titulo2", "titulo3", "titulo4", "titulo5", "titulo6", "titulo7",
-        "notaGanho", "notaRaridade", "notaColecoes", "notaEras", "listaAchados", "legendaRaridade",
+        "notaTotal", "notaGanho", "subtitulo2", "subtitulo5", "notaEras", "listaAchados", "tituloRoscaInicial", "tituloRoscaRecente",
         "contadorBanco", "contadorCarregadas", "contadorUnicos", "limiteData"];
     const textos = Object.fromEntries(ids.map((id) => [id, texto(id)]));
 
-    const graficos = { graficoCartasPorAno, graficoHpPorAno, graficoGanho, graficoRaridade,
+    const graficos = { graficoCartasPorAno, graficoHpPorAno, graficoGanho, graficoRaridade, graficoRaridadeRecente,
         graficoColecoes, graficoEras, graficoEspeciais };
     const dados = Object.fromEntries(Object.entries(graficos).map(([nome, grafico]) => [nome, grafico ? {
         labels: grafico.data.labels.map((rotulo) => Array.isArray(rotulo) ? rotulo.join(" ") : String(rotulo)),
@@ -98,6 +101,7 @@ const FOTOGRAFAR_TELA = `(combinacao) => {
             label: conjunto.label,
             data: conjunto.data.map((valor) => valor == null ? null : Number(valor)),
             reais: conjunto.reais || null,
+            pctEspeciais: conjunto.pctEspeciais || null,
         })),
     } : null]));
 

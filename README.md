@@ -18,11 +18,16 @@ Valores do painel sem filtros, com as coleções de promos fora das contas (ver 
 
 - **Em 25 anos, o HP médio das cartas Pokémon quase dobrou** (+95,8% entre 1999 e 2023).
 - **As cartas especiais explicam a maior parte do crescimento do HP, mas não todo; as normais também
-  cresceram.** As especiais (ex, EX, GX, V, VMAX, VSTAR e outras) responderam por 57% do ganho de HP
-  entre 1999 e 2022.
+  cresceram.** As especiais (ex, EX, GX, V, VMAX, VSTAR e outras) responderam por 54% do ganho de HP
+  entre 1999 e 2023, o mesmo período do crescimento de +95,8%. Sem as especiais, a média de 2023
+  seria 92,5 HP, e não 126,1.
+- **No mesmo período (2004–2023), as especiais mais que dobraram de HP (+127%) e as normais subiram
+  41%.** O período começa no primeiro ano em que as duas séries têm 30 cartas ou mais (em 2003 havia
+  só 24 especiais).
 - **As especiais ficaram mais comuns:** passaram de 4% para até 32% dos Pokémon por ano.
-- **Recuo em 2023:** o HP médio caiu de 143,1 para 126,1 porque a fatia de especiais caiu de 32,2%
-  para 20,1%, e não porque as cartas ficaram mais fracas.
+- **Recuo em 2023 (ano parcial, até 03/11):** o HP médio caiu de 143,1 para 126,1, principalmente
+  porque a fatia de especiais caiu de 32,2% para 20,1%. Com a fatia de 2022, a média de 2023 seria
+  146,2. As normais também caíram um pouco (98,4 → 92,5).
 - **Mais cartas por ano:** a média subiu de 433 cartas por ano (1999–2006) para 1.059 (2017–2023).
 - **Mais raridades:** as cartas raras foram de 21% para 40% do total, e as faixas Secreta/Ilustração
   foram de 0,8% para 10,0%.
@@ -54,13 +59,14 @@ dashboard-pokemon-tcg/
 │   ├── criar_tabela.sql              tabela "cartas", RLS e permissões
 │   ├── 02_limpeza_e_carga.py         limpeza e carga no Supabase em lotes (upsert)
 │   ├── 03_teste_escrita_bloqueada.py prova que a chave pública não escreve no banco
-│   ├── 04_conferencia_tela.mjs       lê o que o dashboard mostra em 13 combinações de filtros
-│   └── 04_conferencia_python.py      confere a tela contra um cálculo independente em Python
+│   ├── 04_conferencia_tela.mjs       lê o que o dashboard mostra em 14 combinações de filtros
+│   ├── 04_conferencia_python.py      confere a tela contra um cálculo independente em Python
+│   └── 05_varredura_filtros.mjs      aplica todas as 7.800 combinações de filtros e procura tela quebrada
 ├── web/
 │   ├── index.html            estrutura do dashboard
 │   ├── style.css             visual e responsividade
 │   └── script.js             consulta ao banco, KPIs, gráficos e filtros
-├── docs/                     material da apresentação e evidências
+├── docs/                     material da apresentação e evidências (ver "Evidências")
 └── referencias/
     └── dicionario-de-dados.txt
 ```
@@ -177,22 +183,60 @@ python scripts/04_conferencia_python.py        # parte 2: refaz as contas e comp
 ```
 
 - A parte 1 abre `web/index.html` no Chrome sem janela, espera as 17.172 cartas chegarem do Supabase,
-  aplica 13 combinações de filtros e salva os textos e os dados dos 7 gráficos em
+  aplica 14 combinações de filtros e salva os textos e os dados dos 7 gráficos em
   `conferencia-tela.json`, na pasta temporária do sistema. Também avisa se houver erro de JavaScript.
 - A parte 2 limpa o CSV com as mesmas funções de `02_limpeza_e_carga.py`, refaz cada conta com pandas
-  e compara com a tela. O esperado é **1.088 checagens iguais, 0 divergências**.
+  e compara com a tela, inclusive o texto dos títulos 1, 2 e 3. O esperado é **1.518 checagens
+  iguais, 0 divergências**.
 - Opcional: a parte 1 também tira prints e diz se a página rola para o lado. Passe o arquivo de saída
   e pares de print e largura:
   `node scripts/04_conferencia_tela.mjs tela.json print-1920.png 1920 print-375.png 375`
   (depois, `python scripts/04_conferencia_python.py tela.json`).
 - Se o Chrome estiver instalado em outro lugar, informe o caminho na variável de ambiente `CHROME`.
 
+Para testar todas as combinações de filtros (leva alguns minutos):
+
+```bash
+node scripts/05_varredura_filtros.mjs
+```
+
+Ele aplica os 325 períodos possíveis × 12 opções de tipo × promos ligadas e desligadas (7.800
+combinações) e confere que nenhum texto mostra NaN, Infinity, undefined ou null, que todo gráfico
+vazio tem título descritivo e que os anos citados nos títulos estão dentro do período. Também testa
+a troca rápida de filtros e a rolagem lateral em 375, 768, 1366 e 1920 px. O esperado é
+"Nenhum problema encontrado."
+
 ## Consistência dos dados
 
 - O dashboard mostra o total de cartas no banco (`count: 'exact'`) ao lado do total carregado pela
   paginação: 17.172 × 17.172.
 - Os valores da tela são conferidos contra um cálculo independente em Python, a partir do CSV, em
-  13 combinações de filtros: 1.088 checagens, 0 divergências (ver "Conferir os números da tela").
+  14 combinações de filtros: 1.518 checagens, 0 divergências (ver "Conferir os números da tela").
+- `scripts/05_varredura_filtros.mjs` aplica todas as 7.800 combinações de filtros (cada par De/Até ×
+  cada tipo × promos) e não encontra texto quebrado, título errado em gráfico vazio nem erro na página.
+
+## Filtros
+
+Período (De/Até e atalhos por era), tipo e "Incluir promos". Todos os indicadores e os 7 gráficos
+recalculam a cada mudança.
+
+- **Tipo:** usa o 1º tipo da carta (103 cartas têm 2 tipos) e, por isso, mostra só Pokémon.
+  Com um tipo escolhido, o ranking aceita coleções com 20 Pokémon do tipo ou mais (sem tipo, 50).
+- **Incluir promos:** desligado por padrão, porque as promos têm uma só data por coleção.
+- Uma comparação só vira título-conclusão se cada lado tiver 30 cartas ou mais; abaixo disso, o
+  título fica descritivo e avisa "amostra pequena". Gráfico sem dados mostra uma mensagem no lugar.
+
+## Evidências
+
+A pasta `docs/` reúne os prints usados na apresentação:
+
+- `docs/conferencia-tabela.png`, `docs/conferencia-rls.png`, `docs/conferencia-politica.png` e
+  `docs/conferencia-permissoes.png`: as 4 consultas de conferência de `scripts/criar_tabela.sql` no
+  SQL Editor do Supabase.
+- `docs/total-no-banco.png`: o fim de `scripts/02_limpeza_e_carga.py` com as 17.172 cartas no banco.
+- `docs/teste-escrita-bloqueada.png`: a saída de `scripts/03_teste_escrita_bloqueada.py` (erro 42501).
+- `docs/consistencia-painel.png`: o cartão de consistência do painel (17.172 × 17.172 × 17.172).
+- `docs/conferencia-tela.png`: a saída de `scripts/04_conferencia_python.py` (0 divergências).
 
 ## Limitações
 

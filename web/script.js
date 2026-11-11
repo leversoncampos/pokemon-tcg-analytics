@@ -26,10 +26,6 @@ const TAMANHO_BLOCO = 1000;
 // Por isso ficam fora das contas por padrão (ver README.md, problema 7).
 const TEXTO_PROMOS = "Black Star Promos";
 
-// A tendência do gráfico 2 é projetada estes anos além do último ano do
-// período. Sem filtros, o período termina em 2023 e a tendência vai até 2026.
-const ANOS_DE_PROJECAO = 3;
-
 // Anos em que as mecânicas especiais chegaram, marcados no gráfico 2.
 const MECANICAS = [
     { ano: 2003, rotulo: "Pokémon-ex" },
@@ -39,17 +35,28 @@ const MECANICAS = [
     { ano: 2023, rotulo: "ex" },
 ];
 
+// Cada era tem a mesma cor em todos os gráficos: cinza claro para a mais
+// antiga e cinza-escuro para a mais recente (o laranja é só das especiais).
+const CORES_DAS_ERAS = ["#c2c7cf", "#8d95a1", "#4b5563"];
+const COR_ERA_RECENTE = CORES_DAS_ERAS[2];
+
 // As 3 eras do gráfico 6 e dos atalhos do topo. Os cortes de 2007 e 2017
 // coincidem com os dois degraus do HP das cartas normais encontrados na exploração.
 const ERAS = [
-    { nome: "1999–2006", inicio: 1999, fim: 2006 },
-    { nome: "2007–2016", inicio: 2007, fim: 2016 },
-    { nome: "2017–2023", inicio: 2017, fim: 2023 },
+    { nome: "1999–2006", inicio: 1999, fim: 2006, cor: CORES_DAS_ERAS[0] },
+    { nome: "2007–2016", inicio: 2007, fim: 2016, cor: CORES_DAS_ERAS[1] },
+    { nome: "2017–2023", inicio: 2017, fim: 2023, cor: CORES_DAS_ERAS[2] },
 ];
 
 // Ranking de coleções: só entram coleções com Pokémon suficientes para a média valer.
 const MINIMO_POKEMON_COLECAO = 50;
+const MINIMO_POKEMON_COLECAO_COM_TIPO = 20;
 const TAMANHO_RANKING = 10;
+
+// Uma comparação só vira título-conclusão se cada lado tiver pelo menos esta
+// quantidade de cartas. Abaixo disso, o título fica descritivo e avisa.
+const AMOSTRA_MINIMA = 30;
+const AVISO_AMOSTRA_PEQUENA = " · amostra pequena";
 
 // Mensagens dos gráficos que ficam sem dados com o filtro escolhido.
 const MENSAGEM_SEM_CARTAS = "Nenhuma carta neste filtro.";
@@ -80,10 +87,11 @@ const TIPOS = [
 const COR_TINTA = "#1f2937";
 const COR_TEXTO_SUAVE = "#6b7280";
 
-// Knaflic: tudo em cinza e UMA cor de destaque (laranja). A mesma entidade tem
-// sempre a mesma cor: laranja = especiais, era mais recente e pico.
+// Knaflic: tudo em cinza e UMA cor de destaque. Laranja = especiais, e só isso;
+// as eras usam CORES_DAS_ERAS e o pico é marcado com anotação.
 const COR_ESPECIAIS = "#e8710a";
-const COR_ESPECIAIS_CLARO = "rgba(232, 113, 10, 0.45)";
+// Laranja-claro: barras de especiais sem destaque (gráfico 7).
+const COR_ESPECIAIS_CLARO = "#f6c9a4";
 const COR_NORMAIS = "#9ca3af";
 const COR_NORMAIS_CLARO = "#d1d5db";
 const COR_NEUTRA_CLARA = "#e5e7eb";
@@ -147,6 +155,7 @@ let graficoCartasPorAno = null;
 let graficoEspeciais = null;
 let graficoGanho = null;
 let graficoRaridade = null;
+let graficoRaridadeRecente = null;
 let graficoColecoes = null;
 let graficoEras = null;
 
@@ -164,7 +173,6 @@ const botaoTentarNovamente = document.getElementById("botaoTentarNovamente");
 const filtroAnoInicial = document.getElementById("filtroAnoInicial");
 const filtroAnoFinal = document.getElementById("filtroAnoFinal");
 const filtroTipo = document.getElementById("filtroTipo");
-const filtroCartas = document.getElementById("filtroCartas");
 const filtroPromos = document.getElementById("filtroPromos");
 const botaoLimparFiltros = document.getElementById("botaoLimparFiltros");
 const pilulasDeEra = document.querySelectorAll(".pilula[data-era]");
@@ -184,10 +192,11 @@ function formatarNumero(valor) {
 }
 
 function formatarDecimal(valor) {
+    // O sinal de menos (−) é mais legível que o hífen (-) nos negativos.
     return valor.toLocaleString("pt-BR", {
         minimumFractionDigits: 1,
         maximumFractionDigits: 1,
-    });
+    }).replace("-", "−");
 }
 
 function formatarPercentual(valor) {
@@ -260,6 +269,51 @@ function ehRara(carta) {
     return obterFaixa(carta).medalha !== null;
 }
 
+// Nome de um trecho pelos anos que realmente têm cartas no filtro: "2005–2006"
+// ou só "2005". Assim um período que corta uma era não leva o nome da era inteira.
+function nomearAnos(cartas) {
+    const anos = cartas.map(obterAno);
+    const inicio = Math.min(...anos);
+    const fim = Math.max(...anos);
+
+    return inicio === fim ? String(inicio) : `${inicio}–${fim}`;
+}
+
+// Separa as cartas por era. Só voltam as eras com cartas no filtro, cada uma
+// com o nome dos anos que entraram.
+function separarPorEra(cartas) {
+    return ERAS
+        .map((era) => ({
+            era: era,
+            cartas: cartas.filter((carta) => obterAno(carta) >= era.inicio && obterAno(carta) <= era.fim),
+        }))
+        .filter((item) => item.cartas.length > 0)
+        .map((item) => ({ ...item, nome: nomearAnos(item.cartas) }));
+}
+
+// Se o ano é o último dos dados e a última coleção não é de 31/12, ele é parcial.
+// Devolve " (parcial, até 03/11)" ou "".
+function descreverAnoParcial(ano) {
+    const ultimaData = todasAsCartas.map((carta) => carta.data_lancamento).sort().pop();
+    const [anoFinal, mes, dia] = ultimaData.split("-");
+
+    if (Number(anoFinal) !== ano || `${mes}-${dia}` === "12-31") {
+        return "";
+    }
+
+    return ` (parcial, até ${dia}/${mes})`;
+}
+
+// Era de um ano (cada ano está em exatamente uma era).
+function obterEraDoAno(ano) {
+    return ERAS.find((era) => ano >= era.inicio && ano <= era.fim);
+}
+
+// Média de cartas impressas por ano: total ÷ anos que têm cartas.
+function calcularCartasPorAno(cartas) {
+    return cartas.length / new Set(cartas.map(obterAno)).size;
+}
+
 // ===================================
 // Filtros: ler a tela
 // ===================================
@@ -271,7 +325,6 @@ function lerFiltros() {
         anoInicial: Number(filtroAnoInicial.value),
         anoFinal: Number(filtroAnoFinal.value),
         tipo: filtroTipo.value,
-        cartas: filtroCartas.value,
         incluirPromos: filtroPromos.checked,
     };
 }
@@ -297,17 +350,7 @@ function cartaPassaNosFiltros(carta, filtros) {
         return false;
     }
 
-    // Só Pokémon podem ser especiais; "normais" também exige ser Pokémon.
-    const regrasDeCartas = {
-        todas: () => true,
-        pokemon: () => carta.supertipo === "Pokémon",
-        normais: () => carta.supertipo === "Pokémon" && !carta.especial,
-        especiais: () => carta.especial,
-        treinador: () => carta.supertipo === "Treinador",
-        energia: () => carta.supertipo === "Energia",
-    };
-
-    return regrasDeCartas[filtros.cartas]();
+    return true;
 }
 
 // ===================================
@@ -351,8 +394,12 @@ function preencherOpcoesDosFiltros() {
         adicionarOpcao(filtroAnoFinal, ano, ano);
     });
 
-    // Tipos na mesma ordem e com os mesmos nomes dos gráficos.
+    // Tipos na mesma ordem e com os mesmos nomes dos gráficos. A lista é
+    // refeita do zero (só "Todos" fica), para nunca repetir opções.
     const tiposExistentes = new Set(todasAsCartas.map((carta) => carta.tipo));
+
+    filtroTipo.replaceChildren();
+    adicionarOpcao(filtroTipo, "todos", "Todos");
 
     TIPOS
         .filter((tipo) => tiposExistentes.has(tipo.chave))
@@ -381,7 +428,6 @@ function definirFiltrosPadrao() {
     filtroAnoInicial.value = anoMinimo;
     filtroAnoFinal.value = anoMaximo;
     filtroTipo.value = "todos";
-    filtroCartas.value = "todas";
     filtroPromos.checked = false;
 }
 
@@ -392,7 +438,6 @@ function contarFiltrosAtivos() {
     const ativos = [
         filtros.anoInicial !== anoMinimo || filtros.anoFinal !== anoMaximo,
         filtros.tipo !== "todos",
-        filtros.cartas !== "todas",
         filtros.incluirPromos,
     ];
 
@@ -491,7 +536,7 @@ function atualizarResumoDoFiltro(cartas) {
 
 function ativarFiltros() {
     const controles = [
-        filtroAnoInicial, filtroAnoFinal, filtroTipo, filtroCartas,
+        filtroAnoInicial, filtroAnoFinal, filtroTipo,
         filtroPromos, botaoLimparFiltros, botaoAbrirFiltros,
     ];
 
@@ -507,7 +552,7 @@ function ativarFiltros() {
     filtroAnoInicial.addEventListener("change", aoMudarAnoInicial);
     filtroAnoFinal.addEventListener("change", aoMudarAnoFinal);
 
-    [filtroTipo, filtroCartas, filtroPromos].forEach((controle) => {
+    [filtroTipo, filtroPromos].forEach((controle) => {
         controle.addEventListener("change", aplicarFiltros);
     });
 
@@ -682,6 +727,7 @@ function resumirPorAno(cartas) {
             return {
                 ano: ano,
                 pokemons: todos.length,
+                normais: normais.length,
                 especiais: especiais.length,
                 pctEspeciais: (especiais.length / todos.length) * 100,
                 hpGeral: calcularMedia(todos),
@@ -692,31 +738,6 @@ function resumirPorAno(cartas) {
 }
 
 // ===================================
-// Regressão linear simples
-// ===================================
-// Encontra a reta y = a + b·x que passa mais perto dos pontos:
-// b = soma de (x - média de x)(y - média de y) / soma de (x - média de x)²
-// a = média de y - b · média de x
-
-function calcularRegressao(pontos) {
-    const mediaX = calcularMedia(pontos.map((ponto) => ponto.x));
-    const mediaY = calcularMedia(pontos.map((ponto) => ponto.y));
-
-    let numerador = 0;
-    let denominador = 0;
-
-    pontos.forEach((ponto) => {
-        numerador += (ponto.x - mediaX) * (ponto.y - mediaY);
-        denominador += (ponto.x - mediaX) ** 2;
-    });
-
-    const b = numerador / denominador;
-    const a = mediaY - b * mediaX;
-
-    return { a, b };
-}
-
-// ===================================
 // Calcular os indicadores
 // ===================================
 
@@ -724,8 +745,28 @@ function calcularIndicadores(data) {
     const pokemons = obterPokemons(data);
     const resumo = resumirPorAno(data);
 
-    // KPI 1: total de cartas, comparado ao total carregado
+    // KPI 1: total de cartas. O contexto diz o que ficou de fora: as promos
+    // ocultas (desligadas por padrão) e, com tipo escolhido, os não-Pokémon.
+    const filtros = lerFiltros();
+
     document.getElementById("kpiTotal").textContent = formatarNumero(data.length);
+
+    const partesDaNota = [];
+
+    if (filtros.tipo !== "todos") {
+        partesDaNota.push("só Pokémon do tipo");
+    }
+
+    if (filtros.incluirPromos) {
+        partesDaNota.push("com promos");
+    } else {
+        const promosOcultas = todasAsCartas.filter((carta) =>
+            ehPromo(carta) && cartaPassaNosFiltros(carta, { ...filtros, incluirPromos: true })).length;
+
+        partesDaNota.push(`${formatarNumero(promosOcultas)} promos ocultas`);
+    }
+
+    document.getElementById("notaTotal").textContent = partesDaNota.join(" · ");
 
     // KPI 2: HP médio (só existe se houver Pokémon no filtro)
     const hpMedio = calcularMedia(pokemons.map((carta) => carta.hp));
@@ -752,7 +793,8 @@ function calcularIndicadores(data) {
 
         // O sinal + ou − já diz se cresceu ou caiu; um selo repetiria a informação.
         kpiCrescimento.textContent = sinal + formatarPercentual(crescimento);
-        notaCrescimento.textContent = `${Math.round(primeiroAno.hpGeral)} → ${Math.round(ultimoAno.hpGeral)} HP ` +
+        // 1 casa decimal: quem refizer a conta com estes números chega ao mesmo %.
+        notaCrescimento.textContent = `${formatarDecimal(primeiroAno.hpGeral)} → ${formatarDecimal(ultimoAno.hpGeral)} HP ` +
             `(${primeiroAno.ano}–${ultimoAno.ano})`;
     }
 
@@ -781,6 +823,8 @@ function calcularIndicadores(data) {
 function criarGraficoCartasPorAno(data) {
     if (data.length === 0) {
         graficoCartasPorAno = esvaziarGrafico(graficoCartasPorAno, "graficoCartasPorAno", MENSAGEM_SEM_CARTAS);
+        // Sem dados, o título volta a ser descritivo: a conclusão do filtro anterior não vale mais.
+        definirTitulo("titulo1", "Cartas impressas por ano");
         return;
     }
 
@@ -802,61 +846,94 @@ function criarGraficoCartasPorAno(data) {
     const nomes = Object.keys(anos);
     const valores = Object.values(anos);
 
-    // Título: média por ano antes e a partir da era recente.
-    const inicioRecente = ERAS[ERAS.length - 1].inicio;
-    const antes = calcularMedia(nomes.filter((ano) => ano < inicioRecente).map((ano) => anos[ano]));
-    const depois = calcularMedia(nomes.filter((ano) => ano >= inicioRecente).map((ano) => anos[ano]));
+    // Título: média de cartas por ano da primeira e da última era do filtro.
+    // É a mesma base do radar e das linhas de média (uma só conta no dashboard).
+    const extremas = obterErasExtremas(data);
 
-    definirTitulo("titulo1", antes !== null && depois !== null
-        ? `Desde ${inicioRecente}, a média de cartas impressas por ano ${descreverVariacao(depois / antes, true)} ` +
-          `(${formatarNumero(Math.round(antes))} → ${formatarNumero(Math.round(depois))})`
-        : "Cartas impressas por ano");
+    if (extremas === null) {
+        definirTitulo("titulo1", "Cartas impressas por ano");
+    } else if (extremas.some((item) => item.cartas.length < AMOSTRA_MINIMA)) {
+        definirTitulo("titulo1", "Cartas impressas por ano" + AVISO_AMOSTRA_PEQUENA);
+    } else {
+        const [inicial, final] = extremas;
+        const antes = calcularCartasPorAno(inicial.cartas);
+        const depois = calcularCartasPorAno(final.cartas);
 
-    // A anotação destaca o maior valor. Um número em cada ponto viraria ruído.
+        definirTitulo("titulo1", `A média de cartas impressas por ano ${descreverVariacao(depois / antes, true)}: ` +
+            `${formatarNumero(Math.round(antes))} (${inicial.nome}) → ${formatarNumero(Math.round(depois))} (${final.nome})`);
+    }
+
+    // Média de cada era do filtro (até 3), desenhada como uma linha em degrau:
+    // cada ano recebe a média da sua era.
+    const eras = separarPorEra(data);
+    const mediaDaEra = (ano) => {
+        const item = eras.find((era) => ano >= era.era.inicio && ano <= era.era.fim);
+
+        return calcularCartasPorAno(item.cartas);
+    };
+    const medias = nomes.map((ano) => mediaDaEra(Number(ano)));
+
+    // Rótulo à direita de cada degrau ("433/ano"), preso ao último ano da era.
+    const degraus = eras.map((item) => ({
+        indice: nomes.indexOf(String(Math.max(...item.cartas.map(obterAno)))),
+        texto: `${formatarNumero(Math.round(calcularCartasPorAno(item.cartas)))}/ano`,
+    }));
+
+    // A anotação marca o maior valor. Um número em cada coluna viraria ruído.
     const indiceMaior = valores.indexOf(Math.max(...valores));
-    const corDoMaior = Number(nomes[indiceMaior]) >= inicioRecente ? COR_ESPECIAIS : COR_TEXTO_SUAVE;
 
     // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
     graficoCartasPorAno = desenharGrafico(graficoCartasPorAno, "graficoCartasPorAno", {
-        type: "line",
+        type: "bar",
         data: {
             labels: nomes,
             datasets: [
                 {
+                    // Colunas: cartas impressas em cada ano, em cinza claro (contexto).
                     label: "Cartas",
                     data: valores,
-                    borderColor: COR_NORMAIS,
-                    backgroundColor: COR_ESPECIAIS,
-                    borderWidth: 2,
+                    backgroundColor: COR_NORMAIS_CLARO,
+                    borderRadius: 2,
+                    order: 2,
+                },
+                {
+                    // Por cima das colunas: a média de cada era, em degrau.
+                    type: "line",
+                    label: "Média da era",
+                    data: medias,
+                    borderColor: COR_ERA_RECENTE,
+                    backgroundColor: COR_ERA_RECENTE,
+                    borderWidth: 2.5,
+                    // "middle": o degrau sobe no meio, entre o último ano de uma era e o primeiro da outra.
+                    stepped: "middle",
                     pointRadius: 0,
-                    pointHoverRadius: 4,
-                    tension: 0.25,
-                    // Trecho cinza até 2016 e laranja na era recente.
-                    segment: {
-                        borderColor: (trecho) =>
-                            Number(nomes[trecho.p1DataIndex]) >= inicioRecente ? COR_ESPECIAIS : COR_NORMAIS,
-                    },
+                    pointHoverRadius: 0,
+                    order: 1,
                 },
             ],
         },
         options: {
-            layout: { padding: { top: 28 } },
+            // Espaço no alto para a anotação e à direita para o rótulo do último degrau.
+            layout: { padding: { top: 28, right: ehProjetor() ? 88 : 76 } },
             interaction: { mode: "index", intersect: false },
             plugins: {
                 legend: { display: false },
+                degraus: { itens: degraus },
                 rotulos: {
                     itens: [
                         {
                             serie: 0,
                             indice: indiceMaior,
                             texto: `${nomes[indiceMaior]}: ${formatarNumero(valores[indiceMaior])}`,
-                            cor: corDoMaior,
+                            cor: COR_TEXTO_SUAVE,
                         },
                     ],
                 },
                 tooltip: {
                     callbacks: {
-                        label: (contexto) => `${formatarNumero(contexto.raw)} cartas`,
+                        label: (contexto) => contexto.datasetIndex === 0
+                            ? `${formatarNumero(contexto.raw)} cartas`
+                            : `média da era: ${formatarNumero(Math.round(contexto.raw))}/ano`,
                     },
                 },
             },
@@ -869,62 +946,58 @@ function criarGraficoCartasPorAno(data) {
 }
 
 // ===================================
-// 2 - HP médio por ano + tendência
+// 2 - HP médio por ano: normais × especiais
 // ===================================
-
-function montarTendencia(anos, resumo, campo) {
-    // A reta é calculada só com os anos que têm dados nessa série.
-    const pontos = resumo
-        .filter((item) => item[campo] !== null)
-        .map((item) => ({ x: item.ano, y: item[campo] }));
-
-    // Com menos de 2 pontos não existe reta: a série de tendência fica vazia.
-    if (pontos.length < 2) {
-        return anos.map(() => null);
-    }
-
-    const { a, b } = calcularRegressao(pontos);
-
-    // Antes do primeiro ponto real fica null: a reta não inventa o passado.
-    return anos.map((ano) => (ano >= pontos[0].x ? a + b * ano : null));
-}
 
 function criarGraficoHpPorAno(data) {
     const resumo = resumirPorAno(data);
 
     if (resumo.length === 0) {
         graficoHpPorAno = esvaziarGrafico(graficoHpPorAno, "graficoHpPorAno", mensagemDeVazio(data));
+        definirTitulo("titulo2", "HP médio por ano: normais × especiais");
+        document.getElementById("subtitulo2").textContent = "HP médio por ano, só Pokémon";
         return;
     }
 
     esconderMensagemDoGrafico("graficoHpPorAno");
 
-    // Título: variação de cada série entre o primeiro e o último ano em que ela aparece.
-    const variacao = (campo) => {
-        const linhas = resumo.filter((item) => item[campo] !== null);
+    // Título: as duas séries no MESMO período, do 1º ao último ano em que cada
+    // uma tem pelo menos AMOSTRA_MINIMA cartas (sem filtros: 2004–2023).
+    const temNormais = resumo.some((item) => item.normais > 0);
+    const temEspeciais = resumo.some((item) => item.especiais > 0);
+    const anosValidos = resumo.filter((item) =>
+        (!temNormais || item.normais >= AMOSTRA_MINIMA) && (!temEspeciais || item.especiais >= AMOSTRA_MINIMA));
+    const subtitulo = document.getElementById("subtitulo2");
 
-        return linhas.length >= 2 ? linhas[linhas.length - 1][campo] / linhas[0][campo] : null;
-    };
+    if (anosValidos.length >= 2) {
+        const primeiro = anosValidos[0];
+        const ultimo = anosValidos[anosValidos.length - 1];
+        const variacaoNormais = ultimo.hpNormais / primeiro.hpNormais;
+        const variacaoEspeciais = ultimo.hpEspeciais / primeiro.hpEspeciais;
 
-    const variacaoEspeciais = variacao("hpEspeciais");
-    const variacaoNormais = variacao("hpNormais");
+        if (temNormais && temEspeciais) {
+            definirTitulo("titulo2", `As especiais ${descreverVariacao(variacaoEspeciais)} de HP; ` +
+                `as normais ${descreverVariacao(variacaoNormais)}`);
+        } else if (temNormais) {
+            definirTitulo("titulo2", `O HP das normais ${descreverVariacao(variacaoNormais, true)}`);
+        } else {
+            definirTitulo("titulo2", `O HP das especiais ${descreverVariacao(variacaoEspeciais, true)}`);
+        }
 
-    if (variacaoEspeciais !== null && variacaoNormais !== null) {
-        definirTitulo("titulo2", `As especiais ${descreverVariacao(variacaoEspeciais)} de HP; ` +
-            `as normais ${descreverVariacao(variacaoNormais)}`);
-    } else if (variacaoNormais !== null) {
-        definirTitulo("titulo2", `O HP das normais ${descreverVariacao(variacaoNormais, true)}`);
-    } else if (variacaoEspeciais !== null) {
-        definirTitulo("titulo2", `O HP das especiais ${descreverVariacao(variacaoEspeciais, true)}`);
+        subtitulo.textContent = `HP médio por ano, só Pokémon · variação de ${primeiro.ano} a ${ultimo.ano} ` +
+            `(anos com ${AMOSTRA_MINIMA} cartas ou mais em cada série)`;
     } else {
-        definirTitulo("titulo2", "HP médio por ano: normais × especiais");
+        // Com menos de 2 anos não há variação; com 2 anos ou mais, faltou amostra.
+        definirTitulo("titulo2", "HP médio por ano: normais × especiais" +
+            (resumo.length >= 2 ? AVISO_AMOSTRA_PEQUENA : ""));
+        subtitulo.textContent = "HP médio por ano, só Pokémon";
     }
 
-    // Eixo com os anos reais e mais os anos da projeção.
-    const ultimoAno = resumo[resumo.length - 1].ano;
-    const anos = resumo.map((item) => item.ano);
+    // Eixo com todos os anos do primeiro ao último, sem pular nenhum:
+    // um ano sem Pokémon no filtro aparece vazio, em vez de sumir do eixo.
+    const anos = [];
 
-    for (let ano = ultimoAno + 1; ano <= ultimoAno + ANOS_DE_PROJECAO; ano++) {
+    for (let ano = resumo[0].ano; ano <= resumo[resumo.length - 1].ano; ano++) {
         anos.push(ano);
     }
 
@@ -944,7 +1017,7 @@ function criarGraficoHpPorAno(data) {
         .map((mecanica) => ({ indice: anos.indexOf(mecanica.ano), rotulo: mecanica.rotulo }));
 
     // Rótulos diretos na ponta de cada linha, na cor da série, no lugar da legenda.
-    const indiceUltimo = anos.indexOf(ultimoAno);
+    const indiceUltimo = anos.length - 1;
     const rotulos = [["Normais", normais, COR_TEXTO_SUAVE], ["Especiais", especiais, COR_ESPECIAIS]]
         .map(([nome, serie, cor], indiceSerie) => ({ nome, cor, serie: indiceSerie, valor: serie[indiceUltimo] }))
         .filter((item) => item.valor !== null)
@@ -952,12 +1025,24 @@ function criarGraficoHpPorAno(data) {
             serie: item.serie,
             indice: indiceUltimo,
             texto: `${item.nome}: ${Math.round(item.valor)} HP`,
+            // No celular, em 2 linhas, para sobrar espaço para o gráfico.
+            textoEstreito: [`${item.nome}:`, `${Math.round(item.valor)} HP`],
             cor: item.cor,
             aDireita: true,
         }));
 
-    const tendenciaNormais = montarTendencia(anos, resumo, "hpNormais");
-    const tendenciaEspeciais = montarTendencia(anos, resumo, "hpEspeciais");
+    // Buracos na linha das especiais (ex.: 2011 sem promos): a linha não liga os
+    // anos vizinhos, e o buraco recebe a anotação "sem especiais".
+    const comEspeciais = especiais.map((valor, indice) => (valor === null ? null : indice)).filter((i) => i !== null);
+    const buracos = [];
+
+    for (let indice = comEspeciais[0] + 1; indice < comEspeciais[comEspeciais.length - 1]; indice++) {
+        if (especiais[indice] === null) {
+            const vizinhos = [especiais[indice - 1], especiais[indice + 1]].filter((valor) => valor !== null);
+
+            buracos.push({ indice: indice, valor: calcularMedia(vizinhos) ?? 0, texto: "sem especiais", cor: COR_TEXTO_SUAVE });
+        }
+    }
 
     // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
     graficoHpPorAno = desenharGrafico(graficoHpPorAno, "graficoHpPorAno", {
@@ -973,8 +1058,9 @@ function criarGraficoHpPorAno(data) {
                     borderWidth: 2,
                     pointRadius: 0,
                     pointHoverRadius: 4,
-                    spanGaps: true,
-                    tension: 0.2,
+                    // Linhas retas: uma curva passaria por valores que não existem.
+                    tension: 0,
+                    spanGaps: false,
                 },
                 {
                     label: "Especiais",
@@ -984,27 +1070,8 @@ function criarGraficoHpPorAno(data) {
                     borderWidth: 3,
                     pointRadius: 0,
                     pointHoverRadius: 4,
-                    // Em 2011 não há especiais fora das promos: a linha liga 2010 a 2012.
-                    spanGaps: true,
-                    tension: 0.2,
-                },
-                {
-                    label: "Tendência das normais",
-                    data: tendenciaNormais,
-                    borderColor: COR_NORMAIS_CLARO,
-                    borderWidth: 1.5,
-                    borderDash: [6, 4],
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
-                },
-                {
-                    label: "Tendência das especiais",
-                    data: tendenciaEspeciais,
-                    borderColor: COR_ESPECIAIS_CLARO,
-                    borderWidth: 1.5,
-                    borderDash: [6, 4],
-                    pointRadius: 0,
-                    pointHoverRadius: 0,
+                    tension: 0,
+                    spanGaps: false,
                 },
             ],
         },
@@ -1015,7 +1082,7 @@ function criarGraficoHpPorAno(data) {
             layout: {
                 padding: (contexto) => ({
                     top: contexto.chart.width < 600 ? 44 : 26,
-                    right: ehProjetor() ? 140 : 118,
+                    right: contexto.chart.width < 500 ? 72 : (ehProjetor() ? 140 : 118),
                 }),
             },
             interaction: { mode: "index", intersect: false },
@@ -1023,7 +1090,10 @@ function criarGraficoHpPorAno(data) {
                 legend: { display: false },
                 mecanicas: { marcos: marcos },
                 rotulos: { itens: rotulos },
+                textos: { itens: buracos },
                 tooltip: {
+                    // Ano sem valor (buraco) não entra no tooltip.
+                    filter: (contexto) => contexto.raw !== null,
                     callbacks: {
                         label: (contexto) =>
                             `${contexto.dataset.label}: ${formatarDecimal(contexto.raw)} HP`,
@@ -1032,7 +1102,13 @@ function criarGraficoHpPorAno(data) {
             },
             scales: {
                 x: { grid: { display: false } },
-                y: { beginAtZero: true, grid: { color: COR_GRADE }, ticks: { maxTicksLimit: 5 } },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: COR_GRADE },
+                    ticks: { maxTicksLimit: 5 },
+                    // A unidade fica no eixo, uma vez só.
+                    title: { display: true, text: "HP médio" },
+                },
             },
         },
     });
@@ -1042,59 +1118,66 @@ function criarGraficoHpPorAno(data) {
 // 3 - De onde veio o ganho de HP
 // ===================================
 
-// Divide o ganho de HP entre o primeiro ano e o pico. Sem especiais, a média
-// seria a das normais; o que passa disso vem das especiais.
-// Devolve null quando a divisão não faz sentido no filtro.
+// Divide o ganho de HP entre o primeiro e o último ano do período (o mesmo
+// período do KPI 3 e do topo). Sem especiais, a média seria a das normais;
+// o que passa disso vem das especiais.
+// Devolve { motivo } quando a divisão não faz sentido no filtro.
 function calcularDecomposicao(resumo) {
     const anosComAmbas = resumo.filter((item) => item.hpNormais !== null && item.hpEspeciais !== null);
 
     if (anosComAmbas.length < 2) {
-        return null;
+        return { motivo: "Para dividir o ganho, o filtro precisa de normais e especiais em pelo menos 2 anos." };
     }
 
     const primeiro = resumo[0];
-    const pico = resumo.reduce((maior, item) => (item.hpGeral > maior.hpGeral ? item : maior));
-    const ganhoTotal = pico.hpGeral - primeiro.hpGeral;
+    const ultimo = resumo[resumo.length - 1];
 
-    if (pico.ano <= primeiro.ano || ganhoTotal <= 0 || primeiro.hpNormais === null || pico.hpNormais === null) {
-        return null;
+    if (primeiro.pokemons < AMOSTRA_MINIMA || ultimo.pokemons < AMOSTRA_MINIMA) {
+        return { motivo: `Amostra pequena: menos de ${AMOSTRA_MINIMA} Pokémon no primeiro ou no último ano.`, amostraPequena: true };
     }
 
-    const parteEspeciais = ((ganhoTotal - (pico.hpNormais - primeiro.hpNormais)) / ganhoTotal) * 100;
+    const ganhoTotal = ultimo.hpGeral - primeiro.hpGeral;
 
-    // Fora de 0–100% (normais caíram, por exemplo), uma pizza não representa a divisão.
+    if (ganhoTotal <= 0 || primeiro.hpNormais === null || ultimo.hpNormais === null) {
+        return { motivo: "O HP médio não subiu entre o primeiro e o último ano: não há ganho para dividir." };
+    }
+
+    const parteEspeciais = ((ganhoTotal - (ultimo.hpNormais - primeiro.hpNormais)) / ganhoTotal) * 100;
+
+    // Fora de 0–100% (normais subiram mais que a média, por exemplo), uma pizza não representa a divisão.
     if (parteEspeciais < 0 || parteEspeciais > 100) {
-        return null;
+        return { motivo: "Neste filtro, a divisão do ganho fica fora de 0–100% e não cabe numa pizza." };
     }
 
-    return { primeiro, pico, parteEspeciais };
+    return { primeiro, ultimo, parteEspeciais };
 }
 
 function criarGraficoGanho(data) {
     const decomposicao = calcularDecomposicao(resumirPorAno(data));
     const nota = document.getElementById("notaGanho");
 
-    if (decomposicao === null) {
-        const mensagem = obterPokemons(data).length === 0
-            ? mensagemDeVazio(data)
-            : "Para dividir o ganho, o filtro precisa de normais e especiais em pelo menos 2 anos.";
+    if (decomposicao.motivo) {
+        const mensagem = obterPokemons(data).length === 0 ? mensagemDeVazio(data) : decomposicao.motivo;
 
         graficoGanho = esvaziarGrafico(graficoGanho, "graficoGanho", mensagem);
-        definirTitulo("titulo3", "De onde veio o ganho de HP");
+        definirTitulo("titulo3", "De onde veio o ganho de HP" + (decomposicao.amostraPequena ? AVISO_AMOSTRA_PEQUENA : ""));
         nota.hidden = true;
         return;
     }
 
     esconderMensagemDoGrafico("graficoGanho");
 
-    const { primeiro, pico, parteEspeciais } = decomposicao;
+    const { primeiro, ultimo, parteEspeciais } = decomposicao;
 
     definirTitulo("titulo3", `${Math.round(parteEspeciais)}% do ganho de HP entre ${primeiro.ano} e ` +
-        `${pico.ano} veio das especiais`);
+        `${ultimo.ano} veio das especiais`);
 
+    // A frase em destaque ao lado da pizza: sem as especiais, a média do último
+    // ano seria só a das normais.
     nota.hidden = false;
-    nota.textContent = `Sem as especiais, a média de ${pico.ano} seria ${formatarDecimal(pico.hpNormais)} HP, ` +
-        `e não ${formatarDecimal(pico.hpGeral)}.`;
+    document.getElementById("ganhoRotulo").textContent = `Sem as especiais, a média de ${ultimo.ano} seria`;
+    document.getElementById("ganhoSem").textContent = `${formatarDecimal(ultimo.hpNormais)} HP`;
+    document.getElementById("ganhoCom").textContent = `${formatarDecimal(ultimo.hpGeral)} HP`;
 
     const nomes = ["Especiais", "Normais"];
     const valores = [parteEspeciais, 100 - parteEspeciais];
@@ -1145,129 +1228,151 @@ function dividirRaridade(cartas) {
     ];
 }
 
+// Configuração de uma rosca (as duas são iguais, só mudam os dados).
+function montarRosca(item, partes) {
+    return {
+        type: "doughnut",
+        data: {
+            labels: ["Raras especiais", "Outras raras", "Demais cartas"],
+            datasets: [
+                {
+                    // O nome são os anos que realmente entraram (ex.: "2017–2018").
+                    label: item.nome,
+                    data: partes,
+                    // Laranja = especiais; cinza-escuro e cinza-claro para o resto.
+                    backgroundColor: [COR_ESPECIAIS, COR_ERA_RECENTE, COR_NEUTRA_CLARA],
+                    borderColor: COR_PAINEL,
+                    borderWidth: 2,
+                },
+            ],
+        },
+        options: {
+            cutout: "58%",
+            // Espaço em volta para os rótulos que ficam fora das fatias.
+            layout: { padding: { top: 26, bottom: 26, left: 96, right: 96 } },
+            plugins: {
+                legend: { display: false },
+                centro: { valor: formatarPercentual(partes[0] + partes[1]), rotulo: "raras" },
+                rotulosForaDasFatias: { minimo: 10 },
+                tooltip: {
+                    callbacks: {
+                        label: (contexto) => `${contexto.label}: ${formatarPercentual(contexto.raw)}`,
+                    },
+                },
+            },
+        },
+    };
+}
+
 function criarGraficoRaridade(data) {
+    const roscaRecente = document.getElementById("roscaRecente");
+
     if (data.length === 0) {
         graficoRaridade = esvaziarGrafico(graficoRaridade, "graficoRaridade", MENSAGEM_SEM_CARTAS);
-        preencherLegenda("legendaRaridade", []);
-        document.getElementById("notaRaridade").hidden = true;
+        graficoRaridadeRecente = esvaziarGrafico(graficoRaridadeRecente, "graficoRaridadeRecente", MENSAGEM_SEM_CARTAS);
+        document.getElementById("tituloRoscaInicial").textContent = "";
+        roscaRecente.hidden = true;
+        definirTitulo("titulo4", "Raras por era");
         return;
     }
 
     esconderMensagemDoGrafico("graficoRaridade");
 
-    // Compara a primeira e a última era com cartas no filtro.
-    const eras = ERAS
-        .map((era) => ({ era: era, cartas: data.filter((carta) => {
-            const ano = obterAno(carta);
-
-            return ano >= era.inicio && ano <= era.fim;
-        }) }))
-        .filter((item) => item.cartas.length > 0);
-
-    // No Chart.js, o primeiro conjunto é o anel de fora: a era recente.
-    const aneis = eras.length >= 2 ? [eras[eras.length - 1], eras[0]] : eras;
-    const partes = aneis.map((item) => dividirRaridade(item.cartas));
-    const nomes = ["Raras especiais", "Outras raras", "Demais cartas"];
-    // Só as raras especiais em laranja; o resto em dois tons de cinza.
-    const cores = [COR_ESPECIAIS, COR_NORMAIS, COR_NEUTRA_CLARA];
+    // Compara a primeira e a última era com cartas no filtro, pelos anos que entraram.
+    const eras = separarPorEra(data);
+    const comparadas = eras.length >= 2 ? [eras[0], eras[eras.length - 1]] : eras;
+    const partes = comparadas.map((item) => dividirRaridade(item.cartas));
 
     // % de raras = raras especiais + outras raras.
     const raras = partes.map((valores) => valores[0] + valores[1]);
-    const recente = { raras: raras[0], especiais: partes[0][0] };
+    const amostraPequena = comparadas.some((item) => item.cartas.length < AMOSTRA_MINIMA);
 
-    if (aneis.length === 2) {
-        const parteEspeciais = recente.raras > 0 ? (recente.especiais / recente.raras) * 100 : 0;
+    if (amostraPequena) {
+        definirTitulo("titulo4", "Raras por era" + AVISO_AMOSTRA_PEQUENA);
+    } else if (comparadas.length === 2) {
+        const recente = partes[1];
+        const parteEspeciais = raras[1] > 0 ? (recente[0] / raras[1]) * 100 : 0;
         const quantas = parteEspeciais >= 45 && parteEspeciais <= 55 ? "metade" : `${Math.round(parteEspeciais)}%`;
 
-        definirTitulo("titulo4", `As raras foram de ${Math.round(raras[1])}% para ${Math.round(raras[0])}% ` +
+        definirTitulo("titulo4", `As raras foram de ${Math.round(raras[0])}% para ${Math.round(raras[1])}% ` +
             `das cartas, e ${quantas} delas são especiais`);
     } else {
         definirTitulo("titulo4", `Raras (Holo ou acima): ${Math.round(raras[0])}% das cartas`);
     }
 
-    // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
-    graficoRaridade = desenharGrafico(graficoRaridade, "graficoRaridade", {
-        type: "doughnut",
-        data: {
-            labels: nomes,
-            datasets: aneis.map((item, indice) => ({
-                label: item.era.nome,
-                data: partes[indice],
-                backgroundColor: cores,
-                borderColor: COR_PAINEL,
-                borderWidth: 2,
-            })),
-        },
-        options: {
-            cutout: "45%",
-            plugins: {
-                legend: { display: false },
-                centro: {
-                    valor: aneis.length === 2
-                        ? `${Math.round(raras[1])}% → ${Math.round(raras[0])}%`
-                        : `${Math.round(raras[0])}%`,
-                    rotulo: "raras",
-                },
-                tooltip: {
-                    callbacks: {
-                        label: (contexto) =>
-                            `${contexto.dataset.label} · ${contexto.label}: ${formatarPercentual(contexto.raw)}`,
-                    },
-                },
-            },
-        },
-    });
+    // Rosca da esquerda: a primeira era (ou a única).
+    document.getElementById("tituloRoscaInicial").textContent = comparadas[0].nome;
+    graficoRaridade = desenharGrafico(graficoRaridade, "graficoRaridade", montarRosca(comparadas[0], partes[0]));
 
-    // Lista com os valores das duas eras: "inicial → recente".
-    preencherLegenda("legendaRaridade", nomes.map((nome, indice) => ({
-        nome: nome,
-        cor: cores[indice],
-        valor: aneis.length === 2
-            ? `${Math.round(partes[1][indice])}% → ${Math.round(partes[0][indice])}%`
-            : `${Math.round(partes[0][indice])}%`,
-    })));
+    // Rosca da direita: a última era. Com uma era só, ela não aparece.
+    if (comparadas.length === 2) {
+        roscaRecente.hidden = false;
+        esconderMensagemDoGrafico("graficoRaridadeRecente");
+        document.getElementById("tituloRoscaRecente").textContent = comparadas[1].nome;
+        graficoRaridadeRecente = desenharGrafico(graficoRaridadeRecente, "graficoRaridadeRecente",
+            montarRosca(comparadas[1], partes[1]));
+    } else {
+        if (graficoRaridadeRecente) {
+            graficoRaridadeRecente.destroy();
+            graficoRaridadeRecente = null;
+        }
 
-    const nota = document.getElementById("notaRaridade");
-    nota.hidden = false;
-    nota.textContent = aneis.length === 2
-        ? `Anel interno: ${aneis[1].era.nome}. Anel externo: ${aneis[0].era.nome}. Raras = Holo ou acima.`
-        : `Era ${aneis[0].era.nome}. Raras = Holo ou acima.`;
+        roscaRecente.hidden = true;
+    }
 }
 
 // ===================================
 // 5 - Ranking das coleções mais fortes
 // ===================================
 
+// Mínimo de Pokémon por coleção. Com um tipo escolhido, nenhuma coleção tem 50
+// Pokémon daquele tipo (a maior tem 43), então o mínimo cai para 20.
+function obterMinimoDaColecao() {
+    return lerFiltros().tipo === "todos" ? MINIMO_POKEMON_COLECAO : MINIMO_POKEMON_COLECAO_COM_TIPO;
+}
+
 // Agrupa os Pokémon por coleção e devolve as de maior HP médio.
-function montarRankingColecoes(pokemons) {
+function montarRankingColecoes(pokemons, minimo) {
     const colecoes = {};
 
     pokemons.forEach((carta) => {
         if (!colecoes[carta.colecao]) {
-            colecoes[carta.colecao] = { nome: carta.colecao, ano: obterAno(carta), hps: [] };
+            colecoes[carta.colecao] = { nome: carta.colecao, ano: obterAno(carta), hps: [], especiais: 0 };
         }
 
         colecoes[carta.colecao].hps.push(carta.hp);
+
+        if (carta.especial) {
+            colecoes[carta.colecao].especiais++;
+        }
     });
 
     return Object.values(colecoes)
-        .filter((colecao) => colecao.hps.length >= MINIMO_POKEMON_COLECAO)
-        .map((colecao) => ({ nome: colecao.nome, ano: colecao.ano, hp: calcularMedia(colecao.hps) }))
+        .filter((colecao) => colecao.hps.length >= minimo)
+        .map((colecao) => ({
+            nome: colecao.nome,
+            ano: colecao.ano,
+            hp: calcularMedia(colecao.hps),
+            // % dos Pokémon da coleção que são especiais (selo laranja na ponta da barra).
+            pctEspeciais: (colecao.especiais / colecao.hps.length) * 100,
+        }))
         .sort((a, b) => b.hp - a.hp)
         .slice(0, TAMANHO_RANKING);
 }
 
 function criarGraficoColecoes(data) {
     const pokemons = obterPokemons(data);
-    const ranking = montarRankingColecoes(pokemons);
+    const minimo = obterMinimoDaColecao();
+    const ranking = montarRankingColecoes(pokemons, minimo);
+    const doTipo = minimo === MINIMO_POKEMON_COLECAO ? "" : " do tipo";
 
-    document.getElementById("notaColecoes").textContent =
-        `Só entram coleções com ${MINIMO_POKEMON_COLECAO} Pokémon ou mais no filtro.`;
+    document.getElementById("subtitulo5").textContent =
+        `HP médio dos Pokémon de cada coleção · mín. ${minimo} Pokémon${doTipo}`;
 
     if (ranking.length === 0) {
         const mensagem = pokemons.length === 0
             ? mensagemDeVazio(data)
-            : `Nenhuma coleção com ${MINIMO_POKEMON_COLECAO} Pokémon ou mais neste filtro.`;
+            : `Nenhuma coleção com ${minimo} Pokémon${doTipo} ou mais neste filtro.`;
 
         graficoColecoes = esvaziarGrafico(graficoColecoes, "graficoColecoes", mensagem);
         definirTitulo("titulo5", "Coleções com maior HP médio");
@@ -1287,8 +1392,9 @@ function criarGraficoColecoes(data) {
     const nomes = ranking.map((colecao) => colecao.nome);
     const valores = ranking.map((colecao) => colecao.hp);
 
-    // Destaque para as coleções da era recente; as demais ficam em cinza.
-    const cores = ranking.map((colecao) => (colecao.ano >= inicioRecente ? COR_ESPECIAIS : COR_NORMAIS));
+    // Linha de referência: HP médio de todos os Pokémon das coleções no filtro
+    // (o mesmo número do KPI 2), para comparar cada barra com o todo.
+    const mediaGeral = calcularMedia(pokemons.map((carta) => carta.hp));
 
     // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
     graficoColecoes = desenharGrafico(graficoColecoes, "graficoColecoes", {
@@ -1299,22 +1405,46 @@ function criarGraficoColecoes(data) {
                 {
                     label: "HP médio",
                     data: valores,
-                    backgroundColor: cores,
+                    // Barras em cinza: o destaque (laranja) fica no selo das especiais.
+                    backgroundColor: COR_NORMAIS,
                     borderRadius: 2,
+                    // Barras finas: o que importa é o comprimento, não a área.
+                    barPercentage: 0.45,
+                    maxBarThickness: 14,
+                    // % de especiais de cada coleção, guardado junto para a conferência.
+                    pctEspeciais: ranking.map((colecao) => colecao.pctEspeciais),
                 },
             ],
         },
         options: {
             indexAxis: "y",
-            // Espaço à direita para o valor escrito na ponta de cada barra.
-            layout: { padding: { right: 48 } },
+            // Espaço no alto para o texto da média e à direita para HP, ano e selo.
+            layout: {
+                padding: (contexto) => ({
+                    top: 26,
+                    right: contexto.chart.width < 500 ? 108 : (ehProjetor() ? 270 : 236),
+                }),
+            },
             plugins: {
                 legend: { display: false },
-                valoresNasBarras: { formatar: formatarDecimal },
+                // Na ponta da barra: o HP, o ano em negrito e o selo laranja com o % de especiais.
+                // No celular: só o HP e o selo curto (o ano fica no tooltip).
+                valoresNasBarras: {
+                    formatar: (valor, chart) => (chart.width < 500 ? formatarDecimal(valor) : `${formatarDecimal(valor)} HP`),
+                    destaques: ranking.map((colecao) => String(colecao.ano)),
+                    selos: ranking.map((colecao) => `${Math.round(colecao.pctEspeciais)}% especiais`),
+                    selosCurtos: ranking.map((colecao) => `${Math.round(colecao.pctEspeciais)}%`),
+                    nomesEmCima: ranking.map((colecao, indice) => `${indice + 1}. ${colecao.nome}`),
+                },
+                referencia: {
+                    valor: mediaGeral,
+                    texto: `média de todas as coleções: ${formatarDecimal(mediaGeral)} HP`,
+                    textoCurto: `média: ${formatarDecimal(mediaGeral)} HP`,
+                },
                 tooltip: {
                     callbacks: {
-                        label: (contexto) =>
-                            `${formatarDecimal(contexto.raw)} HP · ${ranking[contexto.dataIndex].ano}`,
+                        label: (contexto) => `${formatarDecimal(contexto.raw)} HP · ${ranking[contexto.dataIndex].ano} · ` +
+                            `${formatarPercentual(ranking[contexto.dataIndex].pctEspeciais)} especiais`,
                     },
                 },
             },
@@ -1323,21 +1453,17 @@ function criarGraficoColecoes(data) {
                 x: { display: false, beginAtZero: true },
                 y: {
                     grid: { display: false },
-                    // Posição, nome e ano no rótulo da barra. "Shiny Vault (2019)" já traz o ano no nome.
                     ticks: {
                         color: COR_TINTA,
-                        font: (contexto) => ({ size: contexto.chart.width < 500 ? 12 : Chart.defaults.font.size }),
+                        // Nomes com pelo menos 14 px, também no celular.
+                        font: { size: Math.max(14, Chart.defaults.font.size) },
                         // function (e não =>) para usar this.chart. No celular, o nome é
-                        // encurtado e o ano sai (o título já diz o período; o tooltip mostra o ano).
+                        // encurtado e sem o número (a ordem das barras já diz a posição);
+                        // o nome inteiro fica no tooltip.
+                        // No celular, o nome sai do eixo e é escrito em cima da barra
+                        // (ver nomesEmCima), para não ser cortado.
                         callback: function (_valor, indice) {
-                            const ano = String(ranking[indice].ano);
-                            const nome = nomes[indice];
-
-                            if (this.chart.width < 500) {
-                                return `${indice + 1}. ${nome.length > 12 ? nome.slice(0, 11) + "…" : nome}`;
-                            }
-
-                            return `${indice + 1}. ${nome.includes(ano) ? nome : `${nome} (${ano})`}`;
+                            return this.chart.width < 500 ? "" : `${indice + 1}. ${nomes[indice]}`;
                         },
                     },
                 },
@@ -1347,143 +1473,188 @@ function criarGraficoColecoes(data) {
 }
 
 // ===================================
-// 6 - Perfil das 3 eras
+// 6 - Perfil das eras: quanto cada coisa cresceu
 // ===================================
 
-// Resume uma era. Devolve null se a era não tiver nenhuma carta no filtro.
-// HP e % de especiais ficam null se a era não tiver Pokémon.
-function resumirEra(era, data) {
-    const cartas = data.filter((carta) => {
-        const ano = obterAno(carta);
+// Eixos do radar. "frase" é o nome usado no título ("as especiais, 5 vezes").
+const EIXOS_DO_RADAR = [
+    { nome: "HP médio", frase: "o HP médio", campo: "hp", formatar: (valor) => `${formatarDecimal(valor)} HP` },
+    { nome: "HP máximo", frase: "o HP máximo", campo: "hpMaximo", formatar: (valor) => `${formatarNumero(valor)} HP` },
+    { nome: "Cartas por ano", frase: "as cartas por ano", campo: "cartasPorAno", formatar: (valor) => formatarNumero(Math.round(valor)) },
+    { nome: "% raras", frase: "as raras", campo: "pctRaras", formatar: (valor) => formatarPercentual(valor) },
+    { nome: "% especiais", frase: "as especiais", campo: "pctEspeciais", formatar: (valor) => formatarPercentual(valor) },
+];
 
-        return ano >= era.inicio && ano <= era.fim;
-    });
+// Resume um trecho de cartas nos 5 eixos. Devolve null se não houver Pokémon
+// (sem eles, HP e % de especiais não existem).
+function resumirTrecho(cartas) {
+    const pokemons = obterPokemons(cartas);
 
-    if (cartas.length === 0) {
+    if (pokemons.length === 0) {
         return null;
     }
 
-    const pokemons = obterPokemons(cartas);
-    const anosComCartas = new Set(cartas.map(obterAno)).size;
+    const hps = pokemons.map((carta) => carta.hp);
 
     return {
-        hp: calcularMedia(pokemons.map((carta) => carta.hp)),
-        cartasPorAno: cartas.length / anosComCartas,
+        hp: calcularMedia(hps),
+        hpMaximo: Math.max(...hps),
+        cartasPorAno: calcularCartasPorAno(cartas),
         pctRaras: (cartas.filter(ehRara).length / cartas.length) * 100,
-        pctEspeciais: pokemons.length === 0
-            ? null
-            : (pokemons.filter((carta) => carta.especial).length / pokemons.length) * 100,
+        pctEspeciais: (pokemons.filter((carta) => carta.especial).length / pokemons.length) * 100,
     };
 }
 
+// Cartas com os filtros atuais, mas no período inteiro (1999–2023). Usado
+// quando o período escolhido cabe numa era só.
+function obterCartasSemFiltroDePeriodo() {
+    const filtros = { ...lerFiltros(), anoInicial: anoMinimo, anoFinal: anoMaximo };
+
+    return todasAsCartas.filter((carta) => cartaPassaNosFiltros(carta, filtros));
+}
+
+// Quantas vezes o valor recente tem o de referência. Referência 0: se o recente
+// também é 0, não mudou (1×); se não é, é algo novo (null, escrito "novo").
+function calcularMultiplicador(recente, referencia) {
+    if (referencia > 0) {
+        return recente / referencia;
+    }
+
+    return recente > 0 ? null : 1;
+}
+
+// "5 vezes" a partir de 1,95×; abaixo disso, o multiplicador com uma casa ("×1,4").
+function descreverMultiplicador(multiplicador) {
+    return multiplicador >= 1.95 ? `${Math.round(multiplicador)} vezes` : `×${formatarDecimal(multiplicador)}`;
+}
+
 function criarGraficoEras(data) {
-    const eixos = ["HP médio", "Cartas por ano", "% raras (Holo ou acima)", "% especiais"];
-
-    // Rótulos em linhas curtas, para caberem em telas estreitas.
-    const eixosEmLinhas = [["HP médio"], ["Cartas", "por ano"], ["% raras", "(Holo ou acima)"], ["% especiais"]];
-
-    // Só eras com Pokémon: sem eles, HP e % de especiais não existem.
-    const erasComPokemon = ERAS
-        .map((era) => ({ era: era, resumo: resumirEra(era, data) }))
-        .filter((item) => item.resumo !== null && item.resumo.hp !== null);
-
-    // Compara só a primeira e a última era: duas formas se leem melhor que três.
-    const eras = erasComPokemon.length >= 2
-        ? [erasComPokemon[0], erasComPokemon[erasComPokemon.length - 1]]
-        : erasComPokemon;
-
     const nota = document.getElementById("notaEras");
 
     if (obterPokemons(data).length === 0) {
         graficoEras = esvaziarGrafico(graficoEras, "graficoEras", mensagemDeVazio(data));
         nota.hidden = true;
-        return;
-    }
-
-    // Um radar compara formas. Com uma era só, não há o que comparar.
-    if (eras.length < 2) {
-        graficoEras = esvaziarGrafico(graficoEras, "graficoEras",
-            "Este gráfico compara eras, e o período escolhido cobre só uma. Amplie o período.");
-        nota.hidden = true;
+        definirTitulo("titulo6", "Perfil das eras");
         return;
     }
 
     esconderMensagemDoGrafico("graficoEras");
 
-    // No lugar da legenda, a nota diz qual era é cada cor (texto colorido).
-    const eraRecente = document.createElement("span");
-    eraRecente.className = "cor-destaque";
-    eraRecente.textContent = eras[1].era.nome;
+    // Referência e trecho comparado: a primeira e a última era com Pokémon.
+    // Se o período cabe numa era só, a referência é o período inteiro (mesmos filtros).
+    const eras = separarPorEra(data)
+        .map((item) => ({ nome: item.nome, cartas: item.cartas, resumo: resumirTrecho(item.cartas) }))
+        .filter((item) => item.resumo !== null);
 
-    const eraAntiga = document.createElement("span");
-    eraAntiga.className = "cor-contexto";
-    eraAntiga.textContent = eras[0].era.nome;
+    let referencia;
+    let recente;
+    const comparaComTudo = eras.length < 2;
+
+    if (comparaComTudo) {
+        const tudo = obterCartasSemFiltroDePeriodo();
+
+        referencia = { nome: nomearAnos(tudo), cartas: tudo, resumo: resumirTrecho(tudo) };
+        recente = eras[0];
+    } else {
+        referencia = eras[0];
+        recente = eras[eras.length - 1];
+    }
+
+    const multiplicadores = EIXOS_DO_RADAR.map((eixo) =>
+        calcularMultiplicador(recente.resumo[eixo.campo], referencia.resumo[eixo.campo]));
+
+    // Título: se tudo cresceu, diz qual eixo cresceu mais (e quantas vezes).
+    const tudoCresceu = multiplicadores.every((valor) => valor === null || valor > 1);
+    const conhecidos = multiplicadores.filter((valor) => valor !== null);
+    const maior = conhecidos.length > 0 ? Math.max(...conhecidos) : null;
+    const eixoMaior = EIXOS_DO_RADAR[multiplicadores.indexOf(maior)];
+    const comoCresceu = maior === null ? "" : (maior >= 1.95
+        ? `, e ${eixoMaior.frase}, ${descreverMultiplicador(maior)}`
+        : `; o maior aumento: ${eixoMaior.nome} (${descreverMultiplicador(maior)})`);
+
+    if (referencia.cartas.length < AMOSTRA_MINIMA || recente.cartas.length < AMOSTRA_MINIMA) {
+        definirTitulo("titulo6", "Perfil das eras" + AVISO_AMOSTRA_PEQUENA);
+    } else if (comparaComTudo) {
+        definirTitulo("titulo6", tudoCresceu
+            ? `Em ${recente.nome}, tudo é maior que no conjunto ${referencia.nome}${comoCresceu}`
+            : `Período ${recente.nome} × conjunto ${referencia.nome}`);
+    } else {
+        definirTitulo("titulo6", tudoCresceu
+            ? `Da era ${referencia.nome} para a ${recente.nome}, tudo cresceu${comoCresceu}`
+            : `Era ${referencia.nome} × era ${recente.nome}`);
+    }
+
+    // Escala em multiplicador: a referência é o polígono regular em 1×. "Novo"
+    // (referência 0) fica na borda da escala.
+    const topoDaEscala = Math.max(2, Math.ceil(maior ?? 1));
+    const pontos = multiplicadores.map((valor) => (valor === null ? topoDaEscala : valor));
+
+    const datasets = [
+        {
+            label: `${referencia.nome}${comparaComTudo ? " (todo o período)" : ""} = 1×`,
+            data: EIXOS_DO_RADAR.map(() => 1),
+            reais: EIXOS_DO_RADAR.map((eixo) => referencia.resumo[eixo.campo]),
+            borderColor: CORES_DAS_ERAS[0],
+            backgroundColor: "rgba(194, 199, 207, 0.35)",
+            borderWidth: 2,
+            pointRadius: 0,
+        },
+        {
+            label: recente.nome,
+            data: pontos,
+            reais: EIXOS_DO_RADAR.map((eixo) => recente.resumo[eixo.campo]),
+            borderColor: COR_ERA_RECENTE,
+            backgroundColor: COR_ERA_RECENTE + "22",
+            pointBackgroundColor: COR_ERA_RECENTE,
+            borderWidth: 2.5,
+            pointRadius: 3,
+        },
+    ];
+
+    // Multiplicador escrito em cada ponta do polígono recente ("×5,2" ou "novo").
+    const rotulos = multiplicadores.map((valor, indice) => ({
+        serie: 1,
+        indice: indice,
+        texto: valor === null ? "novo" : `×${formatarDecimal(valor)}`,
+        cor: COR_TINTA,
+        paraOCentro: true,
+        soEmTelaLarga: true,
+    }));
+
+    // No lugar da legenda: um quadradinho com a cor de cada trecho.
+    const itens = datasets.map((conjunto) => {
+        const quadrado = document.createElement("span");
+        quadrado.className = "legenda-cor legenda-cor-texto";
+        quadrado.style.background = conjunto.borderColor;
+
+        const nome = document.createElement("span");
+        nome.className = "legenda-texto";
+        nome.textContent = conjunto.label;
+
+        return [quadrado, nome];
+    });
 
     nota.hidden = false;
-    nota.replaceChildren(eraRecente, " × ", eraAntiga,
-        ". 100 = maior valor entre as duas eras (reais no tooltip). % raras usa todas as cartas; % especiais, só os Pokémon.");
-
-    const reais = eras.map((item) => [
-        item.resumo.hp,
-        item.resumo.cartasPorAno,
-        item.resumo.pctRaras,
-        item.resumo.pctEspeciais,
-    ]);
-
-    // Os eixos têm escalas diferentes (HP perto de 100, % perto de 20). Para
-    // caberem no mesmo radar, cada valor vira uma nota de 0 a 100, em que 100 é
-    // o maior valor daquele eixo entre as eras. O valor real fica no tooltip.
-    const maiores = eixos.map((eixo, indice) =>
-        Math.max(...reais.map((valoresDaEra) => valoresDaEra[indice]))
-    );
-
-    // Quantas vezes a era recente tem o valor da primeira, em cada eixo.
-    const razoes = eixos.map((eixo, indice) => (reais[0][indice] > 0 ? reais[1][indice] / reais[0][indice] : null));
-    const rotulos = eixosEmLinhas.map((linhas, indice) =>
-        razoes[indice] === null ? linhas : [...linhas, `×${formatarDecimal(razoes[indice])}`]);
-
-    definirTitulo("titulo6", razoes.every((razao) => razao !== null && razao > 1)
-        ? `A era ${eras[1].era.nome} supera a de ${eras[0].era.nome} em todos os eixos`
-        : `Eras ${eras[0].era.nome} × ${eras[1].era.nome}`);
-
-    // Primeira era em cinza (contexto), última em laranja (destaque).
-    const cores = [COR_NORMAIS, COR_ESPECIAIS];
-
-    const datasets = eras.map((item, indiceEra) => ({
-        label: item.era.nome,
-        // Se o maior valor de um eixo for 0 (ex.: nenhuma especial), todos ficam em 0.
-        data: reais[indiceEra].map((valor, indice) =>
-            maiores[indice] === 0 ? 0 : (valor / maiores[indice]) * 100
-        ),
-        reais: reais[indiceEra],
-        borderColor: cores[indiceEra],
-        backgroundColor: cores[indiceEra] + "22",
-        pointBackgroundColor: cores[indiceEra],
-        borderWidth: 2,
-        pointRadius: 3,
-    }));
+    nota.replaceChildren(...itens.flat(), " · cada ponta: quantas vezes o valor da referência; valores reais no tooltip.");
 
     // Criar o gráfico (1ª vez) ou atualizar com animação (ver desenharGrafico)
     graficoEras = desenharGrafico(graficoEras, "graficoEras", {
         type: "radar",
         data: {
-            labels: rotulos,
+            labels: EIXOS_DO_RADAR.map((eixo) => eixo.nome),
             datasets: datasets,
         },
         options: {
             plugins: {
-                // As cores das eras estão escritas na nota abaixo do gráfico.
                 legend: { display: false },
+                rotulos: { itens: rotulos },
                 tooltip: {
                     callbacks: {
+                        title: (contextos) => EIXOS_DO_RADAR[contextos[0].dataIndex].nome,
                         label: (contexto) => {
-                            const real = contexto.dataset.reais[contexto.dataIndex];
-                            const eixo = eixos[contexto.dataIndex];
-                            const valor = eixo.startsWith("%")
-                                ? formatarPercentual(real)
-                                : formatarDecimal(real);
+                            const eixo = EIXOS_DO_RADAR[contexto.dataIndex];
 
-                            return `${contexto.dataset.label}: ${valor}`;
+                            return `${contexto.dataset.label}: ${eixo.formatar(contexto.dataset.reais[contexto.dataIndex])}`;
                         },
                     },
                 },
@@ -1491,14 +1662,28 @@ function criarGraficoEras(data) {
             scales: {
                 r: {
                     min: 0,
-                    max: 100,
-                    ticks: { display: false },
+                    max: topoDaEscala,
+                    // Anéis a cada 1×, com o número escrito ("1×", "2×"...).
+                    ticks: {
+                        stepSize: 1,
+                        color: COR_TEXTO_SUAVE,
+                        backdropColor: "transparent",
+                        font: { size: 13 },
+                        callback: (valor) => `${valor}×`,
+                    },
                     grid: { color: COR_NEUTRA_CLARA },
                     angleLines: { color: COR_NEUTRA_CLARA },
-                    // Fonte menor quando o gráfico é estreito (celular).
                     pointLabels: {
                         color: COR_TINTA,
-                        font: (contexto) => ({ size: contexto.chart.width < 450 ? 12 : (ehProjetor() ? 16 : 14) }),
+                        // No celular, o nome do eixo quebra em linhas para caber nas laterais.
+                        // O espaço especial ( ) não quebra: "% especiais" e "HP médio" ficam inteiros.
+                        // No celular, o multiplicador vem na última linha do nome do eixo.
+                        callback: (rotulo, indice) => (graficoEras && graficoEras.width < 450
+                            ? [...String(rotulo).replace(/^(HP|%) /, "$1 ").replace(" por ", " por ").split(" "),
+                                rotulos[indice].texto]
+                            : rotulo),
+                        // Nunca abaixo de 13 px, nem no celular.
+                        font: (contexto) => ({ size: contexto.chart.width < 450 ? 13 : (ehProjetor() ? 16 : 14) }),
                     },
                 },
             },
@@ -1515,6 +1700,7 @@ function criarGraficoEspeciais(data) {
 
     if (resumo.length === 0) {
         graficoEspeciais = esvaziarGrafico(graficoEspeciais, "graficoEspeciais", mensagemDeVazio(data));
+        definirTitulo("titulo7", "% de Pokémon especiais por ano");
         return;
     }
 
@@ -1527,18 +1713,56 @@ function criarGraficoEspeciais(data) {
     const comEspeciais = resumo.filter((item) => item.pctEspeciais > 0);
     const picoEspeciais = comEspeciais.reduce((maior, item) =>
         (maior === null || item.pctEspeciais > maior.pctEspeciais ? item : maior), null);
+    const temConclusao = comEspeciais.length >= 2 && picoEspeciais.pctEspeciais > comEspeciais[0].pctEspeciais;
 
-    definirTitulo("titulo7", comEspeciais.length >= 2 && picoEspeciais.pctEspeciais > comEspeciais[0].pctEspeciais
-        ? `E ficaram mais comuns: de ${Math.round(comEspeciais[0].pctEspeciais)}% para até ` +
-          `${Math.round(picoEspeciais.pctEspeciais)}% dos Pokémon`
-        : "% de Pokémon especiais por ano");
+    if (!temConclusao) {
+        definirTitulo("titulo7", "% de Pokémon especiais por ano");
+    } else if (comEspeciais[0].pokemons < AMOSTRA_MINIMA || picoEspeciais.pokemons < AMOSTRA_MINIMA) {
+        definirTitulo("titulo7", "% de Pokémon especiais por ano" + AVISO_AMOSTRA_PEQUENA);
+    } else {
+        definirTitulo("titulo7", `E ficaram mais comuns: de ${Math.round(comEspeciais[0].pctEspeciais)}% para até ` +
+            `${Math.round(picoEspeciais.pctEspeciais)}% dos Pokémon`);
+    }
 
-    // Anotação do pico. Sem nenhuma especial no filtro, não há o que anotar.
     const maior = Math.max(...especiais);
     const indiceMaior = especiais.indexOf(maior);
-    const rotulos = maior > 0
-        ? [{ serie: 0, indice: indiceMaior, texto: `Pico: ${formatarPercentual(maior)} em ${nomes[indiceMaior]}`, cor: COR_ESPECIAIS }]
-        : [];
+    const indiceUltimo = resumo.length - 1;
+    const ultimo = resumo[indiceUltimo];
+    const anterior = resumo[indiceUltimo - 1];
+
+    // Queda no último ano: menos especiais que no ano anterior E média geral menor.
+    const caiuNoFim = anterior !== undefined && indiceUltimo !== indiceMaior &&
+        ultimo.pctEspeciais < anterior.pctEspeciais && ultimo.hpGeral < anterior.hpGeral;
+
+    // Anotações: o pico (à esquerda da barra) e a queda do último ano (à direita do gráfico).
+    const rotulos = [];
+
+    if (maior > 0) {
+        rotulos.push({ serie: 0, indice: indiceMaior, texto: `Pico: ${formatarPercentual(maior)} em ${nomes[indiceMaior]}`,
+            cor: COR_ESPECIAIS, aEsquerda: true });
+    }
+
+    if (caiuNoFim) {
+        rotulos.push({ serie: 0, indice: indiceUltimo, cor: COR_ESPECIAIS, aDireita: true,
+            texto: [`${ultimo.ano}: ${Math.round(ultimo.pctEspeciais)}%`, "menos especiais", "→ média cai"] });
+    }
+
+    // Anos seguidos sem nenhuma especial recebem a anotação "sem especiais".
+    const semEspeciais = [];
+
+    especiais.forEach((valor, indice) => {
+        const ultimoTrecho = semEspeciais[semEspeciais.length - 1];
+
+        if (valor > 0) {
+            return;
+        }
+
+        if (ultimoTrecho && ultimoTrecho.indiceFim === indice - 1) {
+            ultimoTrecho.indiceFim = indice;
+        } else {
+            semEspeciais.push({ indice: indice, indiceFim: indice, valor: 0, texto: "sem especiais", cor: COR_TEXTO_SUAVE });
+        }
+    });
 
     // Eixo até a dezena acima do pico: com 100%, as diferenças sumiriam.
     const topoDoEixo = Math.min(100, Math.ceil((maior + 5) / 10) * 10);
@@ -1552,19 +1776,28 @@ function criarGraficoEspeciais(data) {
                 {
                     label: "Especiais",
                     data: especiais,
-                    // Só o pico em laranja; os outros anos são contexto, em cinza.
+                    // Todas as barras são especiais (laranja-claro); o pico e a queda
+                    // do último ano ficam em laranja forte.
                     backgroundColor: especiais.map((_valor, indice) =>
-                        indice === indiceMaior ? COR_ESPECIAIS : COR_NORMAIS),
+                        indice === indiceMaior || (caiuNoFim && indice === indiceUltimo)
+                            ? COR_ESPECIAIS
+                            : COR_ESPECIAIS_CLARO),
                     borderRadius: 2,
                 },
             ],
         },
         options: {
-            // Espaço no alto para a anotação do pico.
-            layout: { padding: { top: 24 } },
+            // Espaço no alto para a anotação do pico e à direita para a da queda.
+            layout: {
+                padding: (contexto) => ({
+                    top: 24,
+                    right: caiuNoFim ? (contexto.chart.width < 500 ? 116 : 128) : 0,
+                }),
+            },
             plugins: {
                 legend: { display: false },
                 rotulos: { itens: rotulos },
+                textos: { itens: semEspeciais },
                 tooltip: {
                     callbacks: {
                         label: (contexto) => `Especiais: ${formatarPercentual(contexto.raw)} dos Pokémon`,
@@ -1603,79 +1836,65 @@ function criarAchado(titulo, texto) {
 
 // Compara a primeira e a última era com cartas no filtro.
 function obterErasExtremas(data) {
-    const eras = ERAS
-        .map((era) => ({ era: era, cartas: data.filter((carta) => {
-            const ano = obterAno(carta);
-
-            return ano >= era.inicio && ano <= era.fim;
-        }) }))
-        .filter((item) => item.cartas.length > 0);
+    const eras = separarPorEra(data);
 
     return eras.length >= 2 ? [eras[0], eras[eras.length - 1]] : null;
 }
 
 function preencherAchados(data) {
     const resumo = resumirPorAno(data);
+    const filtros = lerFiltros();
     const achados = [];
 
-    // Hipótese 1: mesma divisão da pizza (gráfico 3). A frase oficial só vale acima de 50%.
+    // Resumo final em até 3 linhas, sem repetir os títulos dos gráficos.
+
+    // 1. Por quê: a frase oficial (mesma divisão da pizza). Só vale acima de 50%.
     const decomposicao = calcularDecomposicao(resumo);
 
-    if (decomposicao !== null) {
-        const { primeiro, pico, parteEspeciais } = decomposicao;
-        const periodo = `${primeiro.ano}–${pico.ano}`;
-
-        achados.push(parteEspeciais > 50
-            ? criarAchado("Especiais:", `explicam a maior parte do crescimento do HP ` +
-                `(${Math.round(parteEspeciais)}%, ${periodo}), mas não todo; as normais também cresceram.`)
-            : criarAchado("Normais:", `explicam ${Math.round(100 - parteEspeciais)}% do ganho de HP (${periodo}).`));
+    if (!decomposicao.motivo) {
+        achados.push(decomposicao.parteEspeciais > 50
+            ? criarAchado("Especiais:", "explicam a maior parte do crescimento do HP, mas não todo; " +
+                "as normais também cresceram.")
+            : criarAchado("Normais:", "explicam a maior parte do crescimento do HP neste filtro."))
     }
 
-    // Recuo depois do pico; a fatia de especiais só entra se o filtro tiver especiais.
+    // 2. Recuo depois do pico. Se, com a fatia de especiais do pico, a média do
+    // último ano não tivesse caído, a queda vem principalmente da fatia menor.
     if (resumo.length >= 2) {
         const ultimo = resumo[resumo.length - 1];
         const pico = resumo.reduce((maior, item) => (item.hpGeral > maior.hpGeral ? item : maior));
 
         if (pico.ano < ultimo.ano && ultimo.hpGeral < pico.hpGeral) {
-            const fatia = pico.pctEspeciais > 0 || ultimo.pctEspeciais > 0
-                ? `, com especiais de ${formatarPercentual(pico.pctEspeciais)} para ${formatarPercentual(ultimo.pctEspeciais)}`
+            const temAsDuas = ultimo.hpNormais !== null && ultimo.hpEspeciais !== null && pico.pctEspeciais > 0;
+            const fatiaDoPico = pico.pctEspeciais / 100;
+            const comFatiaDoPico = temAsDuas
+                ? fatiaDoPico * ultimo.hpEspeciais + (1 - fatiaDoPico) * ultimo.hpNormais
+                : null;
+            const explicacao = comFatiaDoPico !== null && comFatiaDoPico >= pico.hpGeral
+                ? `, principalmente porque a fatia de especiais caiu ` +
+                  `(${formatarPercentual(pico.pctEspeciais)} → ${formatarPercentual(ultimo.pctEspeciais)})`
                 : "";
 
-            achados.push(criarAchado(`Recuo em ${ultimo.ano}:`,
-                `${formatarDecimal(pico.hpGeral)} → ${formatarDecimal(ultimo.hpGeral)} HP${fatia}.`));
+            achados.push(criarAchado(`Recuo em ${ultimo.ano}${descreverAnoParcial(ultimo.ano)}:`,
+                `${formatarDecimal(pico.hpGeral)} → ${formatarDecimal(ultimo.hpGeral)} HP${explicacao}.`));
         }
     }
 
-    // Hipóteses 2 e 4: volume e raridade de colecionador, da primeira à última era.
-    const extremas = obterErasExtremas(data);
+    // 3. Editora: normais de 2003 nas duas editoras. Só sem filtro de tipo e sem
+    // promos, que é a base em que o achado foi validado.
+    if (filtros.tipo === "todos" && !filtros.incluirPromos) {
+        const normaisDe2003 = (editora) => calcularMedia(obterPokemons(data)
+            .filter((carta) => obterAno(carta) === 2003 && carta.editora === editora && !carta.especial)
+            .map((carta) => carta.hp));
 
-    if (extremas !== null) {
-        const [inicial, final] = extremas;
-        const eras = `(${inicial.era.nome} → ${final.era.nome})`;
-        const porAno = (item) => item.cartas.length / new Set(item.cartas.map(obterAno)).size;
-        const pctSecretas = (item) => (item.cartas.filter((carta) =>
-            obterFaixa(carta).nome === "Secreta/Ilustração").length / item.cartas.length) * 100;
+        const wotc = normaisDe2003("WOTC");
+        const tpci = normaisDe2003("TPCI");
 
-        achados.push(criarAchado("Cartas impressas por ano:",
-            `${formatarNumero(Math.round(porAno(inicial)))} → ${formatarNumero(Math.round(porAno(final)))} ${eras}.`));
-
-        if (pctSecretas(final) > pctSecretas(inicial)) {
-            achados.push(criarAchado("Secreta/Ilustração:",
-                `${formatarPercentual(pctSecretas(inicial))} → ${formatarPercentual(pctSecretas(final))} das cartas ${eras}.`));
+        // A frase só é dita quando os números a confirmam (TPCI sem HP maior).
+        if (wotc !== null && tpci !== null && tpci <= wotc) {
+            achados.push(criarAchado("Editora:", `em 2003, normais com ${formatarDecimal(wotc)} HP (WOTC) e ` +
+                `${formatarDecimal(tpci)} (TPCI); a troca não coincide com aumento de HP.`));
         }
-    }
-
-    // Hipótese 3: editoras no mesmo ano, para tirar o efeito do tempo.
-    const normaisDe2003 = (editora) => calcularMedia(obterPokemons(data)
-        .filter((carta) => obterAno(carta) === 2003 && carta.editora === editora && !carta.especial)
-        .map((carta) => carta.hp));
-
-    const wotc = normaisDe2003("WOTC");
-    const tpci = normaisDe2003("TPCI");
-
-    if (wotc !== null && tpci !== null) {
-        achados.push(criarAchado("Editora:", `em 2003, normais com ${formatarDecimal(wotc)} HP (WOTC) e ` +
-            `${formatarDecimal(tpci)} (TPCI); a troca não coincide com aumento de HP.`));
     }
 
     if (achados.length === 0) {
@@ -1686,34 +1905,6 @@ function preencherAchados(data) {
     }
 
     document.getElementById("listaAchados").replaceChildren(...achados);
-}
-
-// ===================================
-// Legenda da rosca
-// ===================================
-
-function preencherLegenda(idLista, itens) {
-    const linhas = itens.map((item) => {
-        const linha = document.createElement("li");
-
-        const cor = document.createElement("span");
-        cor.className = "legenda-cor";
-        cor.style.background = item.cor;
-
-        const nome = document.createElement("span");
-        nome.className = "legenda-nome";
-        nome.textContent = item.nome;
-
-        const valor = document.createElement("span");
-        valor.className = "legenda-valor";
-        valor.textContent = item.valor;
-
-        linha.append(cor, nome, valor);
-
-        return linha;
-    });
-
-    document.getElementById(idLista).replaceChildren(...linhas);
 }
 
 // ===================================
@@ -1732,12 +1923,15 @@ function fonteDasAnotacoes(peso) {
 }
 
 // Rótulo direto (Knaflic): texto curto, na cor da série, preso a um ponto ou barra.
-// Por padrão fica acima do ponto; com "aDireita", fica depois do fim do eixo X,
-// na altura do ponto (usado na ponta das linhas do gráfico 2).
+// Por padrão fica acima do ponto. Com "aDireita", fica depois do fim do eixo X,
+// na altura do ponto (ponta das linhas do gráfico 2). Com "aEsquerda", fica à
+// esquerda da barra, na altura do topo dela (pico do gráfico 7).
+// O texto pode ser uma lista: cada item vira uma linha.
 const pluginRotulos = {
     id: "rotulos",
     afterDatasetsDraw(chart, argumentos, opcoes) {
         const { ctx, chartArea } = chart;
+        const alturaDaLinha = ehProjetor() ? 19 : 17;
 
         (opcoes.itens || []).forEach((item) => {
             const elemento = chart.getDatasetMeta(item.serie).data[item.indice];
@@ -1746,17 +1940,46 @@ const pluginRotulos = {
                 return;
             }
 
+            const estreito = chart.width < 500;
+
+            // Alguns rótulos só cabem em tela larga (ex.: valores do radar).
+            if (estreito && item.soEmTelaLarga) {
+                return;
+            }
+
+            const texto = estreito && item.textoEstreito ? item.textoEstreito : item.texto;
+            const linhas = Array.isArray(texto) ? texto : [texto];
+
             ctx.save();
             ctx.font = fonteDasAnotacoes(700);
             ctx.fillStyle = item.cor;
 
-            if (item.aDireita) {
+            if (item.paraOCentro) {
+                // Radar: o texto fica um pouco para dentro do ponto, na direção do centro.
+                const { xCenter, yCenter } = chart.scales.r;
+                const distancia = Math.hypot(xCenter - elemento.x, yCenter - elemento.y) || 1;
+                const passo = Math.min(18, distancia / 2);
+
+                ctx.textAlign = "center";
+                ctx.textBaseline = "middle";
+                ctx.fillText(linhas[0],
+                    elemento.x + ((xCenter - elemento.x) / distancia) * passo,
+                    elemento.y + ((yCenter - elemento.y) / distancia) * passo);
+            } else if (item.aDireita) {
                 ctx.textAlign = "left";
                 ctx.textBaseline = "middle";
-                ctx.fillText(item.texto, chartArea.right + 8, elemento.y);
+                linhas.forEach((linha, indice) => {
+                    ctx.fillText(linha, chartArea.right + 8, elemento.y + indice * alturaDaLinha);
+                });
+            } else if (item.aEsquerda) {
+                const metadeDaBarra = (elemento.width || 0) / 2;
+
+                ctx.textAlign = "right";
+                ctx.textBaseline = "top";
+                ctx.fillText(linhas[0], elemento.x - metadeDaBarra - 6, elemento.y);
             } else {
                 // Mantém o texto dentro da área do gráfico.
-                const largura = ctx.measureText(item.texto).width;
+                const largura = ctx.measureText(linhas[0]).width;
                 const x = Math.min(
                     Math.max(elemento.x, chartArea.left + largura / 2),
                     chartArea.right - largura / 2
@@ -1764,7 +1987,7 @@ const pluginRotulos = {
 
                 ctx.textAlign = "center";
                 ctx.textBaseline = "bottom";
-                ctx.fillText(item.texto, x, elemento.y - 6);
+                ctx.fillText(linhas[0], x, elemento.y - 6);
             }
 
             ctx.restore();
@@ -1772,7 +1995,152 @@ const pluginRotulos = {
     },
 };
 
+// Texto curto preso a anos e a um valor do eixo Y, como "sem especiais".
+// Com "indiceFim", o texto cobre um trecho de anos: fica deitado se couber
+// na largura do trecho, e em pé (subindo a partir do valor) se não couber.
+const pluginTextos = {
+    id: "textos",
+    afterDatasetsDraw(chart, argumentos, opcoes) {
+        const { ctx, scales } = chart;
+
+        (opcoes.itens || []).forEach((item) => {
+            const y = scales.y.getPixelForValue(item.valor);
+
+            ctx.save();
+            ctx.font = `italic ${fonteDasAnotacoes(400)}`;
+            ctx.fillStyle = item.cor;
+            ctx.textBaseline = "middle";
+
+            if (item.indiceFim === undefined) {
+                ctx.textAlign = "center";
+                ctx.fillText(item.texto, scales.x.getPixelForValue(item.indice), y);
+                ctx.restore();
+                return;
+            }
+
+            const inicio = scales.x.getPixelForValue(item.indice);
+            const fim = scales.x.getPixelForValue(item.indiceFim);
+            const larguraDeUmAno = scales.x.width / chart.data.labels.length;
+            const espaco = fim - inicio + larguraDeUmAno;
+
+            if (ctx.measureText(item.texto).width <= espaco) {
+                ctx.textAlign = "center";
+                ctx.fillText(item.texto, (inicio + fim) / 2, y - 12);
+            } else {
+                ctx.translate((inicio + fim) / 2, y - 6);
+                ctx.rotate(-Math.PI / 2);
+                ctx.textAlign = "left";
+                ctx.fillText(item.texto, 0, 0);
+            }
+
+            ctx.restore();
+        });
+    },
+};
+
+// Rótulo à direita de cada degrau da linha de médias (gráfico 1), como "433/ano".
+// O texto começa logo depois do degrau e sobe o quanto for preciso para não
+// encostar nas colunas nem no degrau seguinte que ficam embaixo dele.
+const pluginDegraus = {
+    id: "degraus",
+    afterDatasetsDraw(chart, argumentos, opcoes) {
+        const { ctx, chartArea } = chart;
+        const colunas = chart.getDatasetMeta(0).data;
+        const degrau = chart.getDatasetMeta(1).data;
+
+        ctx.save();
+        ctx.font = fonteDasAnotacoes(700);
+        ctx.fillStyle = COR_ERA_RECENTE;
+        ctx.textAlign = "left";
+        ctx.textBaseline = "bottom";
+
+        (opcoes.itens || []).forEach((item) => {
+            const coluna = colunas[item.indice];
+            const proxima = colunas[item.indice + 1];
+
+            if (!coluna) {
+                return;
+            }
+
+            const largura = ctx.measureText(item.texto).width;
+
+            // Última era: o texto fica à direita do degrau, fora das colunas.
+            // As outras: na ponta direita do próprio degrau, terminando onde ele sobe.
+            const fim = proxima ? (coluna.x + proxima.x) / 2 - 4 : coluna.x + coluna.width / 2 + 6 + largura;
+            const inicio = fim - largura;
+            let y = degrau[item.indice].y - 4;
+
+            // Colunas que ficam embaixo do texto empurram o texto para cima.
+            colunas.forEach((outra) => {
+                const cobre = outra.x + outra.width / 2 >= inicio && outra.x - outra.width / 2 <= fim;
+
+                if (cobre) {
+                    y = Math.min(y, outra.y - 4);
+                }
+            });
+
+            ctx.fillText(item.texto, inicio, Math.max(y, chartArea.top + 14));
+        });
+
+        ctx.restore();
+    },
+};
+
+// Rótulo direto fora de cada fatia grande da rosca (nome + %), com um traço
+// curto ligando o texto à fatia. Fatias abaixo de "minimo" % ficam sem rótulo.
+const pluginRotulosForaDasFatias = {
+    id: "rotulosForaDasFatias",
+    afterDatasetsDraw(chart, argumentos, opcoes) {
+        if (opcoes.minimo === undefined) {
+            return;
+        }
+
+        const { ctx } = chart;
+        const conjunto = chart.data.datasets[0];
+
+        chart.getDatasetMeta(0).data.forEach((fatia, indice) => {
+            const valor = conjunto.data[indice];
+
+            if (valor < opcoes.minimo) {
+                return;
+            }
+
+            const { x, y, outerRadius, startAngle, endAngle } = fatia;
+            const angulo = (startAngle + endAngle) / 2;
+            const direita = Math.cos(angulo) >= 0;
+            const pontaX = x + Math.cos(angulo) * (outerRadius + 10);
+            const pontaY = y + Math.sin(angulo) * (outerRadius + 10);
+
+            ctx.save();
+            ctx.strokeStyle = COR_NORMAIS;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(x + Math.cos(angulo) * (outerRadius + 2), y + Math.sin(angulo) * (outerRadius + 2));
+            ctx.lineTo(pontaX, pontaY);
+            ctx.stroke();
+
+            ctx.fillStyle = COR_TINTA;
+            ctx.textAlign = direita ? "left" : "right";
+            ctx.textBaseline = "middle";
+            ctx.font = fonteDasAnotacoes(600);
+
+            // O texto nunca passa da borda do gráfico (o nome é a linha mais larga).
+            const largura = ctx.measureText(chart.data.labels[indice]).width;
+            const textoX = direita
+                ? Math.min(pontaX + 4, chart.width - largura - 2)
+                : Math.max(pontaX - 4, largura + 2);
+            ctx.fillText(chart.data.labels[indice], textoX, pontaY - 8);
+            ctx.font = fonteDasAnotacoes(400);
+            ctx.fillText(formatarPercentual(valor), textoX, pontaY + 9);
+            ctx.restore();
+        });
+    },
+};
+
 // Valor escrito na ponta de cada barra horizontal (ranking): dispensa o eixo X.
+// Com "destaques", escreve depois do valor um texto em negrito (o ano da coleção);
+// com "selos", um selo laranja (o % de especiais da coleção). No celular, o ano
+// some e o selo fica curto.
 const pluginValoresNasBarras = {
     id: "valoresNasBarras",
     afterDatasetsDraw(chart, argumentos, opcoes) {
@@ -1782,17 +2150,93 @@ const pluginValoresNasBarras = {
 
         const { ctx } = chart;
         const valores = chart.data.datasets[0].data;
+        const estreito = chart.width < 500;
+        const alturaDoSelo = ehProjetor() ? 22 : 20;
 
         ctx.save();
-        ctx.font = fonteDasAnotacoes(600);
-        ctx.fillStyle = COR_TINTA;
         ctx.textAlign = "left";
         ctx.textBaseline = "middle";
 
         chart.getDatasetMeta(0).data.forEach((barra, indice) => {
-            ctx.fillText(opcoes.formatar(valores[indice]), barra.x + 6, barra.y);
+            // No celular, o nome da coleção vai em cima da barra, alinhado à esquerda.
+            if (estreito && opcoes.nomesEmCima) {
+                ctx.fillStyle = COR_TINTA;
+                ctx.font = fonteDasAnotacoes(600);
+                ctx.textBaseline = "bottom";
+                // Contorno branco: a linha tracejada da média não atravessa o nome.
+                ctx.strokeStyle = COR_PAINEL;
+                ctx.lineWidth = 4;
+                ctx.strokeText(opcoes.nomesEmCima[indice], chart.chartArea.left, barra.y - barra.height / 2 - 2);
+                ctx.fillText(opcoes.nomesEmCima[indice], chart.chartArea.left, barra.y - barra.height / 2 - 2);
+                ctx.textBaseline = "middle";
+            }
+
+            let x = barra.x + 6;
+            const texto = opcoes.formatar(valores[indice], chart);
+
+            ctx.fillStyle = COR_TINTA;
+            ctx.font = fonteDasAnotacoes(400);
+            ctx.fillText(texto, x, barra.y);
+            x += ctx.measureText(texto).width + 8;
+
+            if (opcoes.destaques && !estreito) {
+                ctx.font = fonteDasAnotacoes(700);
+                ctx.fillText(opcoes.destaques[indice], x, barra.y);
+                x += ctx.measureText(opcoes.destaques[indice]).width + 10;
+            }
+
+            if (opcoes.selos) {
+                const selo = estreito ? opcoes.selosCurtos[indice] : opcoes.selos[indice];
+
+                ctx.font = fonteDasAnotacoes(700);
+                const largura = ctx.measureText(selo).width + 14;
+
+                ctx.fillStyle = COR_ESPECIAIS;
+                ctx.beginPath();
+                ctx.roundRect(x, barra.y - alturaDoSelo / 2, largura, alturaDoSelo, alturaDoSelo / 2);
+                ctx.fill();
+                ctx.fillStyle = "#ffffff";
+                ctx.fillText(selo, x + 7, barra.y + 1);
+            }
         });
 
+        ctx.restore();
+    },
+};
+
+// Linha vertical tracejada de referência (ranking: média de todas as coleções),
+// com o texto no alto.
+const pluginReferencia = {
+    id: "referencia",
+    beforeDatasetsDraw(chart, argumentos, opcoes) {
+        if (opcoes.valor === undefined || opcoes.valor === null) {
+            return;
+        }
+
+        const { ctx, chartArea, scales } = chart;
+        const x = scales.x.getPixelForValue(opcoes.valor);
+
+        ctx.save();
+        ctx.strokeStyle = COR_TEXTO_SUAVE;
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([5, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, chartArea.top - 4);
+        ctx.lineTo(x, chartArea.bottom);
+        ctx.stroke();
+
+        ctx.setLineDash([]);
+        ctx.font = fonteDasAnotacoes(600);
+        ctx.fillStyle = COR_TEXTO_SUAVE;
+        ctx.textBaseline = "bottom";
+
+        // Texto curto no celular. Começa na linha e nunca passa das bordas.
+        const texto = chart.width < 500 && opcoes.textoCurto ? opcoes.textoCurto : opcoes.texto;
+        const largura = ctx.measureText(texto).width;
+        const inicio = Math.max(2, Math.min(x + 6, chart.width - largura - 2));
+
+        ctx.textAlign = "left";
+        ctx.fillText(texto, inicio, chartArea.top - 6);
         ctx.restore();
     },
 };
@@ -1898,13 +2342,19 @@ const pluginCentro = {
 // ===================================
 
 function configurarChart() {
-    Chart.register(pluginRotulos, pluginValoresNasBarras, pluginMecanicas, pluginCentro, pluginRotulosNasFatias);
+    Chart.register(pluginRotulos, pluginTextos, pluginDegraus, pluginRotulosForaDasFatias, pluginValoresNasBarras, pluginReferencia, pluginMecanicas, pluginCentro, pluginRotulosNasFatias);
 
     // maintainAspectRatio: false faz o gráfico ocupar a altura definida no CSS.
     Chart.defaults.maintainAspectRatio = false;
     Chart.defaults.font.family = FONTE;
-    // No projetor (tela larga), letras maiores nos gráficos.
+    // No projetor (tela larga), letras maiores nos gráficos. Mínimo de 14 px.
     Chart.defaults.font.size = ehProjetor() ? 16 : 14;
+
+    // Se a janela passar de um lado para o outro dos 1600 px, as letras mudam junto.
+    window.matchMedia("(min-width: 1600px)").addEventListener("change", () => {
+        Chart.defaults.font.size = ehProjetor() ? 16 : 14;
+        Object.values(Chart.instances).forEach((grafico) => grafico.update("none"));
+    });
     Chart.defaults.color = COR_TEXTO_SUAVE;
 
     // Ao trocar um filtro, os gráficos animam do valor antigo para o novo em
