@@ -89,17 +89,24 @@ const FOTOGRAFAR_TELA = `(combinacao) => {
     };
     const ids = ["kpiTotal", "kpiHp", "kpiCrescimento", "notaCrescimento", "kpiEspeciais", "resumoFiltro",
         "titulo1", "titulo2", "titulo3", "titulo4", "titulo5", "titulo6", "titulo7",
-        "notaTotal", "notaGanho", "subtitulo2", "subtitulo5", "notaEras", "listaAchados", "tituloRoscaInicial", "tituloRoscaRecente",
+        "notaTotal", "notaGanho", "subtitulo2", "subtitulo5", "notaBolhas", "subtitulo6", "listaAchados",
         "contadorBanco", "contadorCarregadas", "contadorUnicos", "limiteData"];
     const textos = Object.fromEntries(ids.map((id) => [id, texto(id)]));
 
-    const graficos = { graficoCartasPorAno, graficoHpPorAno, graficoGanho, graficoRaridade, graficoRaridadeRecente,
-        graficoColecoes, graficoEras, graficoEspeciais };
+    const graficos = { graficoCartasPorAno, graficoHpPorAno, graficoGanho, graficoRaridade,
+        graficoColecoes, graficoBolhas, graficoEspeciais };
     const dados = Object.fromEntries(Object.entries(graficos).map(([nome, grafico]) => [nome, grafico ? {
-        labels: grafico.data.labels.map((rotulo) => Array.isArray(rotulo) ? rotulo.join(" ") : String(rotulo)),
+        labels: (grafico.data.labels || []).map((rotulo) => Array.isArray(rotulo) ? rotulo.join(" ") : String(rotulo)),
         datasets: grafico.data.datasets.map((conjunto) => ({
             label: conjunto.label,
-            data: conjunto.data.map((valor) => valor == null ? null : Number(valor)),
+            // Número, intervalo [início, fim] (cascata) ou ponto {x, y} (bolhas).
+            data: conjunto.data.map((valor) => valor == null ? null
+                : Array.isArray(valor) ? valor.map(Number)
+                : typeof valor === "object" ? { x: Number(valor.x), y: Number(valor.y) }
+                : Number(valor)),
+            textos: conjunto.textos || null,
+            nomes: conjunto.nomes || null,
+            quantidades: conjunto.quantidades || null,
             reais: conjunto.reais || null,
             pctEspeciais: conjunto.pctEspeciais || null,
         })),

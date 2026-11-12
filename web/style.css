@@ -364,6 +364,65 @@ select {
 
 
 /* ===================================
+   Etiquetas dos filtros ativos
+   =================================== */
+
+.etiquetas {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--espaco-2);
+    margin: calc(var(--espaco-6) * -0.5) 0 var(--espaco-6);
+    font-size: var(--f-14);
+}
+
+.etiquetas-rotulo {
+    color: var(--texto-suave);
+}
+
+.etiquetas-lista {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--espaco-2);
+}
+
+.etiqueta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--espaco-2);
+    min-height: 32px;
+    padding: 0 var(--espaco-3);
+    background: var(--cartao);
+    border: 1px solid var(--contexto-claro);
+    border-radius: 999px;
+    color: var(--texto);
+    font-size: var(--f-14);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.etiqueta:hover {
+    border-color: var(--texto);
+}
+
+/* "Copiar link" fica na ponta direita da linha das etiquetas. */
+.botao-copiar {
+    margin-left: auto;
+}
+
+.aviso-copia {
+    color: var(--texto-suave);
+    font-size: var(--f-14);
+}
+
+.etiqueta-remover {
+    color: var(--texto-suave);
+    font-size: var(--f-16);
+    line-height: 1;
+}
+
+
+/* ===================================
    Aviso de carregamento e erro
    =================================== */
 
@@ -601,67 +660,14 @@ select {
     font-weight: 700;
 }
 
-/* Pizza pequena (metade da altura) e, ao lado, o número que conta a história. */
-.ganho {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-    gap: var(--espaco-4);
-    align-items: center;
-}
-
-.area-grafico.area-pizza {
-    height: 150px;
-}
-
-.ganho-destaque {
-    color: var(--texto-suave);
-    font-size: var(--f-16);
-}
-
-.ganho-destaque[hidden] {
-    display: none;
-}
-
-.ganho-numero {
-    color: var(--texto);
-    font-size: var(--f-40);
-    font-weight: 700;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-}
-
-.ganho-destaque strong {
-    color: var(--texto);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Duas roscas do mesmo tamanho, lado a lado (primeira e última era). */
-.roscas {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--espaco-4);
-    margin-top: var(--espaco-4);
-}
-
-.rosca {
-    margin: 0;
-}
-
-.rosca[hidden] {
-    display: none;
-}
-
-.rosca-titulo {
-    color: var(--texto);
-    font-size: var(--f-16);
-    font-weight: 700;
-    text-align: center;
-    font-variant-numeric: tabular-nums;
-}
-
-.area-grafico.area-rosca {
-    height: 300px;
-    margin-top: var(--espaco-1);
+/* Escala de cor das bolhas: laranja claro (0%) → escuro (50% ou mais de especiais). */
+.escala-laranja {
+    display: inline-block;
+    width: 72px;
+    height: 10px;
+    border-radius: 2px;
+    vertical-align: middle;
+    background: linear-gradient(90deg, rgb(252, 227, 205), rgb(168, 79, 6));
 }
 
 /* Quadradinho de cor. O contorno fino deixa visível até o cinza mais claro. */
@@ -792,6 +798,56 @@ select {
     margin-top: var(--espaco-6);
     color: var(--texto-suave);
     font-size: var(--f-12);
+}
+
+
+/* ===================================
+   Painel de detalhe da coleção
+   =================================== */
+
+.painel-colecao {
+    width: min(440px, calc(100vw - 32px));
+    padding: var(--espaco-5);
+    background: var(--cartao);
+    border: 1px solid var(--borda);
+    border-radius: var(--raio);
+    color: var(--texto);
+}
+
+.painel-colecao::backdrop {
+    background: rgba(31, 41, 55, 0.45);
+}
+
+.painel-colecao-topo {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--espaco-3);
+}
+
+.painel-colecao-dados {
+    display: grid;
+    gap: var(--espaco-2);
+    margin-top: var(--espaco-4);
+}
+
+.painel-colecao-dados div {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--espaco-3);
+    padding-bottom: var(--espaco-2);
+    border-bottom: 1px solid var(--grade);
+    font-size: var(--f-16);
+}
+
+.painel-colecao-dados dt {
+    color: var(--texto-suave);
+}
+
+.painel-colecao-dados dd {
+    font-weight: 600;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
 }
 
 
@@ -1046,22 +1102,7 @@ select {
         height: 380px;
     }
 
-    /* No celular, uma rosca embaixo da outra (lado a lado não caberiam os rótulos). */
-    .roscas {
-        grid-template-columns: minmax(0, 1fr);
-    }
 
-    .area-grafico.area-rosca {
-        height: 220px;
-    }
-
-    .area-grafico.area-pizza {
-        height: 150px;
-    }
-
-    .ganho-numero {
-        font-size: var(--f-28);
-    }
 }
 
 /* Impressão: só o conteúdo, e nenhum painel partido entre duas páginas. */

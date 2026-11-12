@@ -17,6 +17,8 @@ import contextlib
 import importlib.util
 import io
 import json
+import numpy as np
+import pandas as pd
 import math
 import re
 import sys
@@ -105,6 +107,11 @@ def numero(texto):
 def arredondar(valor):
     """Math.round do JavaScript: 0,5 sobe (o round do Python arredonda para o par)."""
     return math.floor(valor + 0.5)
+
+
+def decimal_br(valor):
+    """61.74 -> '61,7' (1 casa, como o formatarDecimal do painel)."""
+    return f"{arredondar(valor * 10) / 10:.1f}".replace(".", ",").replace("-", "−")
 
 
 def inteiro_br(valor):
@@ -265,46 +272,51 @@ def conferir_combinacao(cartas, foto):
         for linha, ano, valor in zip(resumo, grafico["labels"], grafico["datasets"][0]["data"]):
             conferir(f"gráfico 7 {ano}", linha["pct"], valor)
 
-    # Gráfico 3: parte do ganho de HP (primeiro → último ano) que veio das especiais
-    parte = None
-    pequena = False
-    if sum(1 for linha in resumo if linha["normais"] is not None and linha["especiais"] is not None) >= 2:
-        primeiro, ultimo = resumo[0], resumo[-1]
-        ganho = ultimo["geral"] - primeiro["geral"]
-        if primeiro["pokemons"] < AMOSTRA_MINIMA or ultimo["pokemons"] < AMOSTRA_MINIMA:
-            pequena = True
-        elif ganho > 0 and primeiro["normais"] is not None and ultimo["normais"] is not None:
-            parte = (ganho - (ultimo["normais"] - primeiro["normais"])) / ganho * 100
-            if not 0 <= parte <= 100:
-                parte = None
+    # Gráfico 3: cascata — HP do 1º ano, + normais, + especiais, HP do último ano
     grafico = graficos["graficoGanho"]
-    conferir("gráfico 3 % das especiais", parte, grafico and grafico["datasets"][0]["data"][0])
-    if parte is None:
-        titulo = "De onde veio o ganho de HP" + (AVISO_AMOSTRA_PEQUENA if pequena else "")
+    titulo = "De onde veio o ganho de HP"
+    # Mesma ordem do painel: menos de 2 anos → amostra pequena → faltam normais.
+    if len(resumo) < 2:
+        conferir("gráfico 3 vazio", None, grafico)
+    elif resumo[0]["pokemons"] < AMOSTRA_MINIMA or resumo[-1]["pokemons"] < AMOSTRA_MINIMA:
+        conferir("gráfico 3 vazio", None, grafico)
+        titulo += AVISO_AMOSTRA_PEQUENA
+    elif resumo[0]["normais"] is None or resumo[-1]["normais"] is None:
+        conferir("gráfico 3 vazio", None, grafico)
     else:
-        titulo = f"{arredondar(parte)}% do ganho de HP entre {resumo[0]['ano']} e {resumo[-1]['ano']} veio das especiais"
+        primeiro, ultimo = resumo[0], resumo[-1]
+        total = ultimo["geral"] - primeiro["geral"]
+        normais = ultimo["normais"] - primeiro["normais"]
+        especiais = total - normais
+        esperado = [[0, primeiro["geral"]], [primeiro["geral"], primeiro["geral"] + normais],
+                    [primeiro["geral"] + normais, primeiro["geral"] + normais + especiais], [0, ultimo["geral"]]]
+        for indice, (inicio, fim) in enumerate(esperado):
+            conferir(f"gráfico 3 barra {indice} início", inicio, grafico["datasets"][0]["data"][indice][0])
+            conferir(f"gráfico 3 barra {indice} fim", fim, grafico["datasets"][0]["data"][indice][1])
+        if total > 0 and normais >= 0 and especiais >= 0:
+            titulo = (f"Dos {decimal_br(total)} HP ganhos de {primeiro['ano']} a {ultimo['ano']}, "
+                      f"{decimal_br(especiais)} ({arredondar(especiais / total * 100)}%) vieram das especiais")
+        else:
+            titulo = f"HP médio de {primeiro['ano']} a {ultimo['ano']}: o que mudou nas normais e nas especiais"
     conferir("título 3", titulo, textos["titulo3"])
 
-    # Gráfico 4: duas roscas, a primeira e a última era com cartas (uma só, se houver uma era)
+    # Gráfico 4: barras 100% empilhadas, uma coluna por era com cartas, 3 faixas
     eras = [(nome, selecao[(selecao.ano >= inicio) & (selecao.ano <= fim)]) for nome, inicio, fim in ERAS]
     eras = [era for era in eras if len(era[1])]
+    grafico = graficos["graficoRaridade"]
     if not eras:
-        conferir("gráfico 4 vazio", None, graficos["graficoRaridade"])
+        conferir("gráfico 4 vazio", None, grafico)
     else:
-        comparadas = [eras[0], eras[-1]] if len(eras) >= 2 else eras
-        nomes_das_roscas = ["graficoRaridade", "graficoRaridadeRecente"]
-        for indice, (nome, cartas_da_era) in enumerate(comparadas):
+        conferir("gráfico 4 colunas", float(len(eras)), float(len(grafico["labels"])))
+        for coluna, (nome, cartas_da_era) in enumerate(eras):
             total = len(cartas_da_era)
             partes = [
                 (cartas_da_era.rara & cartas_da_era.especial).sum() / total * 100,
                 (cartas_da_era.rara & ~cartas_da_era.especial).sum() / total * 100,
             ]
             partes.append(100 - partes[0] - partes[1])
-            for posicao, valor in enumerate(partes):
-                conferir(f"gráfico 4 {nome} parte {posicao}", valor,
-                         graficos[nomes_das_roscas[indice]]["datasets"][0]["data"][posicao], 1e-9)
-        if len(comparadas) == 1:
-            conferir("gráfico 4 sem a 2ª rosca", None, graficos["graficoRaridadeRecente"])
+            for faixa, valor in enumerate(partes):
+                conferir(f"gráfico 4 {nome} faixa {faixa}", valor, grafico["datasets"][faixa]["data"][coluna], 1e-9)
 
     # Gráfico 5: top 10 coleções por HP médio (mínimo de 50 Pokémon)
     grafico = graficos["graficoColecoes"]
@@ -322,43 +334,48 @@ def conferir_combinacao(cartas, foto):
         for (nome, linha), valor in zip(colecoes.iterrows(), grafico["datasets"][0]["pctEspeciais"]):
             conferir(f"gráfico 5 {nome} % especiais", linha.pct_especiais * 100, valor)
 
-    # Gráfico 6: radar "quanto cada coisa cresceu", 5 eixos. A referência (1×) é a
-    # primeira era com Pokémon; com uma era só, o período inteiro (mesmos filtros).
-    grafico = graficos["graficoEras"]
-
-    def eixos(cartas_do_trecho):
-        pokemons_do_trecho = cartas_do_trecho[cartas_do_trecho.supertipo == "Pokémon"]
-        return [
-            pokemons_do_trecho.hp.mean(),
-            pokemons_do_trecho.hp.max(),
-            len(cartas_do_trecho) / cartas_do_trecho.ano.nunique(),
-            cartas_do_trecho.rara.mean() * 100,
-            pokemons_do_trecho.especial.mean() * 100,
-        ]
-
-    eras_com_pokemon = []
-    for nome, inicio, fim in ERAS:
-        da_era = selecao[(selecao.ano >= inicio) & (selecao.ano <= fim)]
-        if len(da_era[da_era.supertipo == "Pokémon"]):
-            eras_com_pokemon.append((nome, da_era))
-
-    if not eras_com_pokemon:
+    # Gráfico 6: bolhas — uma por coleção com o mínimo de Pokémon do ranking
+    grafico = graficos["graficoBolhas"]
+    bolhas = pokemons.groupby("colecao").agg(quantidade=("hp", "size"), hp=("hp", "mean"),
+                                             pct=("especial", "mean"), data=("data_lancamento", "min"))
+    bolhas = bolhas[bolhas.quantidade >= minimo].copy()
+    if bolhas.empty:
         conferir("gráfico 6 vazio", None, grafico)
     else:
-        if len(eras_com_pokemon) >= 2:
-            trechos = [eras_com_pokemon[0], eras_com_pokemon[-1]]
+        datas = pd.to_datetime(bolhas.data)
+        bolhas["x"] = datas.dt.year + (datas - pd.to_datetime(datas.dt.year.astype(str) + "-01-01")).dt.days / 365
+        bolhas = bolhas.sort_values("x", kind="stable")
+        serie = grafico["datasets"][0]
+        conferir("gráfico 6 coleções", " | ".join(sorted(bolhas.index)), " | ".join(sorted(serie["nomes"])))
+        por_nome = {nome: indice for indice, nome in enumerate(serie["nomes"])}
+        for nome, linha in bolhas.iterrows():
+            i = por_nome.get(nome)
+            if i is None:
+                continue
+            conferir(f"gráfico 6 {nome} x", float(linha.x), serie["data"][i]["x"], 1e-9)
+            conferir(f"gráfico 6 {nome} HP", float(linha.hp), serie["data"][i]["y"], 1e-9)
+            conferir(f"gráfico 6 {nome} Pokémon", float(linha.quantidade), float(serie["quantidades"][i]))
+            conferir(f"gráfico 6 {nome} % especiais", float(linha.pct * 100), serie["pctEspeciais"][i], 1e-9)
+
+        # Correlação (r) da nota e título
+        r = None
+        if len(bolhas) >= 10:
+            r = float(np.corrcoef(bolhas.pct * 100, bolhas.hp)[0, 1])
+            achado = re.search(r"r = (−?[0-9]+,[0-9]+)", textos["notaBolhas"] or "")
+            conferir("gráfico 6 r da nota", round(r, 2), achado and float(achado.group(1).replace(",", ".").replace("−", "-")), 0.0051)
+        if r is None:
+            titulo = "HP médio × % de especiais por coleção" + AVISO_AMOSTRA_PEQUENA
+        elif r >= 0.5:
+            por_era = []
+            for _, inicio, fim in ERAS:
+                da_era = bolhas[(bolhas.x.astype(int) >= inicio) & (bolhas.x.astype(int) <= fim)]
+                if len(da_era) >= 10:
+                    por_era.append(float(np.corrcoef(da_era.pct * 100, da_era.hp)[0, 1]))
+            em_cada_era = len(por_era) >= 2 and all(valor >= 0.5 for valor in por_era)
+            titulo = "Coleções com mais especiais têm HP médio maior" + (", mesmo dentro de cada era" if em_cada_era else "")
         else:
-            tudo = filtrar(cartas, {**filtro, "anoInicial": 1999, "anoFinal": 2023})
-            trechos = [("todo o período", tudo), eras_com_pokemon[0]]
-        referencia, recente = eixos(trechos[0][1]), eixos(trechos[1][1])
-        for indice, valores in enumerate([referencia, recente]):
-            for eixo, valor in enumerate(valores):
-                conferir(f"gráfico 6 {trechos[indice][0]} eixo {eixo}", float(valor),
-                         grafico["datasets"][indice]["reais"][eixo], 1e-9)
-        # Multiplicador de cada ponta = recente ÷ referência
-        for eixo, (antes, depois) in enumerate(zip(referencia, recente)):
-            if antes > 0:
-                conferir(f"gráfico 6 multiplicador eixo {eixo}", depois / antes, grafico["datasets"][1]["data"][eixo], 1e-9)
+            titulo = "HP médio × % de especiais por coleção"
+        conferir("título 6", titulo, textos["titulo6"])
 
     return len(selecao)
 

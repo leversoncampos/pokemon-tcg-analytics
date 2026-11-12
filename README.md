@@ -32,8 +32,45 @@ Valores do painel sem filtros, com as coleções de promos fora das contas (ver 
 - **Mais raridades:** as cartas raras foram de 21% para 40% do total, e as faixas Secreta/Ilustração
   foram de 0,8% para 10,0%.
 - **As 10 coleções com maior HP médio são todas de 2019 em diante.**
+- **Coleções com mais especiais têm HP médio maior, mesmo dentro de cada era:** r = 0,91 entre o %
+  de especiais e o HP médio das 110 coleções com 50 Pokémon ou mais (0,74, 0,91 e 0,83 dentro de
+  cada era). Os dados são consistentes com as especiais como causa, mas não provam.
+- **Da era 1999–2006 para a 2017–2023, tudo cresceu, e as especiais, 5 vezes:** HP médio ×1,9,
+  HP máximo ×1,7, cartas por ano ×2,4, % de raras ×1,9 e % de especiais ×5,2.
 - **A troca de editora não explica o aumento.** Em 2003, as cartas normais tinham 68,2 de HP na
   Wizards of the Coast e 64,8 na The Pokémon Company International; o salto só aparece em 2007.
+
+## Os 7 gráficos (7 tipos distintos)
+
+A tela conta a história em 3 partes. Cada gráfico tem um título-conclusão calculado dos dados e,
+embaixo, um subtítulo que começa pelo tipo do gráfico e diz a base da conta.
+
+| Parte | Gráfico | Tipo (Chart.js) | Mensagem sem filtros |
+|---|---|---|---|
+| O HP subiu | HP médio por ano, normais × especiais | **linha** (`line`) | As especiais mais que dobraram de HP; as normais subiram 41% |
+| O HP subiu | Top 10 coleções por HP médio | **barras horizontais** (`bar`, `indexAxis: "y"`) | As 10 coleções mais fortes são todas de 2019 em diante |
+| Por quê | % de especiais por ano | **área** (`line` com `fill`) | E ficaram mais comuns: de 4% para até 32% dos Pokémon |
+| Por quê | Ganho de HP: 1º ano → normais → especiais → último ano | **cascata** (`bar` com barras flutuantes `[início, fim]`) | Dos 61,7 HP ganhos de 1999 a 2023, 33,6 (54%) vieram das especiais |
+| Por quê | Coleções: data × HP médio, tamanho = nº de Pokémon, cor = % de especiais | **bolhas** (`bubble`) | Coleções com mais especiais têm HP médio maior, mesmo dentro de cada era |
+| O que mais mudou | Cartas impressas por ano e média de cada era | **colunas + linha** (misto `bar` + `line`) | A média de cartas impressas por ano mais que dobrou: 433 (1999–2006) → 1.059 (2017–2023) |
+| O que mais mudou | Raridade de cada era | **barras 100% empilhadas** (`bar`, `stacked`) | As raras foram de 21% para 40% das cartas, e metade delas são especiais |
+
+Nenhum plugin externo: a cascata, a área e as bolhas são recursos nativos do Chart.js 4, e as
+anotações (rótulos diretos, médias, mecânicas) são plugins pequenos escritos em `web/script.js`.
+
+## Interações
+
+Toda interação só muda os filtros e chama `aplicarFiltros()`: os 7 gráficos e os 3 indicadores
+sempre se recalculam juntos.
+
+- **Etiquetas dos filtros ativos** ("Período: 2017–2023 ×"): o × remove só aquele filtro.
+- **Filtros no endereço (#)**, com o botão "Copiar link desta visão". Exemplos: `#promos=1`,
+  `#de=2017`, `#tipo=Water`. Cada valor é conferido contra as opções dos próprios campos; valores
+  inválidos são ignorados e nada do endereço entra na página como HTML.
+- **Clique numa coleção** (bolha ou barra do ranking): abre um painel com data, nº de Pokémon, HP
+  médio e máximo, % de especiais e posição. Só mostra; não muda os filtros.
+- **Clique numa era** (coluna das barras 100% ou do gráfico de cartas por ano): o período vira
+  aquela era, como nos atalhos do topo.
 
 ## Tecnologias
 
@@ -186,8 +223,8 @@ python scripts/04_conferencia_python.py        # parte 2: refaz as contas e comp
   aplica 14 combinações de filtros e salva os textos e os dados dos 7 gráficos em
   `conferencia-tela.json`, na pasta temporária do sistema. Também avisa se houver erro de JavaScript.
 - A parte 2 limpa o CSV com as mesmas funções de `02_limpeza_e_carga.py`, refaz cada conta com pandas
-  e compara com a tela, inclusive o texto dos títulos 1, 2 e 3. O esperado é **1.518 checagens
-  iguais, 0 divergências**.
+  e compara com a tela: KPIs, os dados dos 7 gráficos (inclusive cada bolha e a correlação r da
+  nota) e o texto dos títulos 1, 2, 3 e 6. O esperado é **3.186 checagens iguais, 0 divergências**.
 - Opcional: a parte 1 também tira prints e diz se a página rola para o lado. Passe o arquivo de saída
   e pares de print e largura:
   `node scripts/04_conferencia_tela.mjs tela.json print-1920.png 1920 print-375.png 375`
@@ -203,17 +240,19 @@ node scripts/05_varredura_filtros.mjs
 Ele aplica os 325 períodos possíveis × 12 opções de tipo × promos ligadas e desligadas (7.800
 combinações) e confere que nenhum texto mostra NaN, Infinity, undefined ou null, que todo gráfico
 vazio tem título descritivo e que os anos citados nos títulos estão dentro do período. Também testa
-a troca rápida de filtros e a rolagem lateral em 375, 768, 1366 e 1920 px. O esperado é
-"Nenhum problema encontrado."
+a troca rápida de filtros, a rolagem lateral em 375, 768, 1366 e 1920 px e as interações (22 testes:
+etiquetas, endereço com valores válidos e inválidos, link aberto do zero, painel da coleção e clique
+na era). O esperado é "Nenhum problema encontrado."
 
 ## Consistência dos dados
 
 - O dashboard mostra o total de cartas no banco (`count: 'exact'`) ao lado do total carregado pela
   paginação: 17.172 × 17.172.
 - Os valores da tela são conferidos contra um cálculo independente em Python, a partir do CSV, em
-  14 combinações de filtros: 1.518 checagens, 0 divergências (ver "Conferir os números da tela").
+  14 combinações de filtros: 3.186 checagens, 0 divergências (ver "Conferir os números da tela").
 - `scripts/05_varredura_filtros.mjs` aplica todas as 7.800 combinações de filtros (cada par De/Até ×
-  cada tipo × promos) e não encontra texto quebrado, título errado em gráfico vazio nem erro na página.
+  cada tipo × promos) e não encontra texto quebrado, título errado em gráfico vazio nem erro na página;
+  as 22 checagens de interação passam.
 
 ## Filtros
 

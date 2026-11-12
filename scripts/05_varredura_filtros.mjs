@@ -144,11 +144,17 @@ const trocaRapida = JSON.parse(await avaliar(`(async () => {
     Object.values(Chart.instances).forEach((g) => {
         if (!["line", "bar"].includes(g.config.type)) return;
         const eixo = g.options.indexAxis === "y" ? g.scales.x : g.scales.y;
+        const empilhado = eixo.options.stacked;
         g.data.datasets.forEach((d, i) => g.getDatasetMeta(i).data.forEach((el, j) => {
             const v = d.data[j];
-            if (v == null) return;
+            if (v == null || (v.x !== undefined)) return;
+            // Barra flutuante [início, fim]: o topo é o fim. Empilhada: o topo é a soma até aqui.
+            let alvo = Array.isArray(v) ? v[1] : v;
+            if (empilhado) {
+                alvo = g.data.datasets.slice(0, i + 1).reduce((soma, outro) => soma + (outro.data[j] || 0), 0);
+            }
             const atual = g.options.indexAxis === "y" ? el.x : el.y;
-            if (Math.abs(eixo.getPixelForValue(v) - atual) > 1) fora.push(g.canvas.id + " ponto " + j);
+            if (Math.abs(eixo.getPixelForValue(alvo) - atual) > 1) fora.push(g.canvas.id + " série " + i + " ponto " + j);
         }));
     });
     limparFiltros();
@@ -182,15 +188,129 @@ for (const largura of [375, 768, 1366, 1920]) {
 }
 
 // ==================================
-// 3. Todas as combinações de filtros (animação desligada, para ir rápido)
+// 3. Interações: cada uma tem de mudar os filtros e recalcular KPIs e gráficos juntos
+// ==================================
+// "confere(nome, condição)" guarda o resultado de cada teste.
+
+const interacoes = JSON.parse(await avaliar(`(async () => {
+    const pausa = (ms) => new Promise((r) => setTimeout(r, ms));
+    const testes = [];
+    const confere = (nome, ok) => testes.push({ nome, ok: !!ok });
+    // O KPI 1 tem de mostrar o total das cartas que passam nos filtros do momento.
+    const kpiBate = () => kpiTotal.textContent === formatarNumero(obterCartasDoPainel().length);
+
+    // Etiquetas: uma por filtro ativo; o × remove só aquele filtro.
+    limparFiltros(); await pausa(50);
+    confere("etiquetas: nenhuma sem filtros", listaEtiquetas.children.length === 0);
+    filtroAnoInicial.value = 2017; filtroAnoFinal.value = 2023; filtroTipo.value = "Fire"; filtroPromos.checked = true;
+    aplicarFiltros(); await pausa(50);
+    confere("etiquetas: 3 com período, tipo e promos", listaEtiquetas.children.length === 3);
+    [...listaEtiquetas.children].find((b) => b.textContent.startsWith("Tipo")).click(); await pausa(50);
+    confere("etiquetas: × do tipo volta o tipo para Todos", filtroTipo.value === "todos" && filtroAnoInicial.value === "2017" && filtroPromos.checked);
+    confere("etiquetas: KPI recalculado depois do ×", kpiBate());
+    [...listaEtiquetas.children].forEach(() => listaEtiquetas.children[0].click());
+    confere("etiquetas: removendo todas, volta ao padrão", listaEtiquetas.children.length === 0 && filtroAnoInicial.value === String(anoMinimo) && !filtroPromos.checked);
+
+    // Endereço (#): os filtros escrevem o #, e um # novo aplica a visão.
+    filtroAnoInicial.value = 2007; filtroAnoFinal.value = 2016; filtroTipo.value = "Water";
+    aplicarFiltros(); await pausa(50);
+    confere("endereço: filtros escrevem o #", location.hash === "#de=2007&ate=2016&tipo=Water");
+    location.hash = "#de=2017&ate=2023&promos=1"; await pausa(200);
+    confere("endereço: # novo aplica a visão", filtroAnoInicial.value === "2017" && filtroTipo.value === "todos" && filtroPromos.checked);
+    confere("endereço: KPI recalculado pelo #", kpiBate());
+    // Valores inválidos são ignorados; o tipo com HTML não vira elemento na página.
+    location.hash = "#de=abc&ate=1800&tipo=" + encodeURIComponent("<img src=x id=invasor>") + "&promos=7"; await pausa(200);
+    confere("endereço: valores inválidos ignorados",
+        filtroAnoInicial.value === String(anoMinimo) && filtroAnoFinal.value === String(anoMaximo) && filtroTipo.value === "todos" && !filtroPromos.checked);
+    confere("endereço: nada do # entra como HTML", document.getElementById("invasor") === null);
+    location.hash = "#de=2020&ate=2010"; await pausa(200);
+    confere("endereço: período invertido corrigido", filtroAnoInicial.value === "2020" && filtroAnoFinal.value === "2020");
+    limparFiltros(); await pausa(50);
+    confere("endereço: sem filtros, sem #", location.hash === "");
+
+    // Painel da coleção: um clique de verdade na 1ª barra do ranking e na 1ª bolha.
+    const clicar = (grafico, indice) => {
+        const elemento = grafico.getDatasetMeta(0).data[indice];
+        const caixa = grafico.canvas.getBoundingClientRect();
+        grafico.canvas.dispatchEvent(new MouseEvent("click", {
+            clientX: caixa.left + elemento.x, clientY: caixa.top + elemento.y, bubbles: true,
+        }));
+    };
+    const valorDoPainel = (rotulo) => [...painelColecaoDados.children]
+        .find((linha) => linha.querySelector("dt").textContent === rotulo).querySelector("dd").textContent;
+
+    clicar(graficoColecoes, 0); await pausa(100);
+    confere("painel: clique no ranking abre a coleção certa",
+        painelColecao.open && painelColecaoNome.textContent === graficoColecoes.data.labels[0]);
+    confere("painel: HP médio igual ao da barra",
+        valorDoPainel("HP médio") === formatarDecimal(graficoColecoes.data.datasets[0].data[0]) + " HP");
+    painelColecao.close();
+
+    clicar(graficoBolhas, 0); await pausa(100);
+    const primeiraBolha = graficoBolhas.data.datasets[0];
+    confere("painel: clique na bolha abre a coleção certa", painelColecao.open && painelColecaoNome.textContent === primeiraBolha.nomes[0]);
+    confere("painel: % de especiais igual ao da bolha", valorDoPainel("Especiais") === formatarPercentual(primeiraBolha.pctEspeciais[0]));
+    confere("painel: não muda os filtros", location.hash === "" && filtroTipo.value === "todos");
+    painelColecao.close();
+
+    // Clique na era: coluna das barras 100% (gráfico 4) e coluna de um ano (gráfico 1).
+    const clicarNoConjunto = (grafico, conjunto, indice) => {
+        const elemento = grafico.getDatasetMeta(conjunto).data[indice];
+        const caixa = grafico.canvas.getBoundingClientRect();
+        const meio = elemento.base !== undefined ? (elemento.y + elemento.base) / 2 : elemento.y;
+        grafico.canvas.dispatchEvent(new MouseEvent("click", {
+            clientX: caixa.left + elemento.x, clientY: caixa.top + meio, bubbles: true,
+        }));
+    };
+    const eraMarcada = () => document.querySelector(".pilula.ativa").dataset.era;
+
+    limparFiltros(); await pausa(50);
+    clicarNoConjunto(graficoRaridade, 2, 0); await pausa(100);
+    confere("era: clique na 1ª coluna das barras 100% põe 1999–2006",
+        filtroAnoInicial.value === "1999" && filtroAnoFinal.value === "2006" && eraMarcada() === "0");
+    confere("era: KPI recalculado pelo clique", kpiBate());
+    limparFiltros(); await pausa(50);
+    clicarNoConjunto(graficoCartasPorAno, 0, graficoCartasPorAno.data.labels.indexOf("2017")); await pausa(100);
+    confere("era: clique na coluna de 2017 do gráfico 1 põe 2017–2023",
+        filtroAnoInicial.value === "2017" && filtroAnoFinal.value === "2023" && eraMarcada() === "2");
+    confere("era: endereço acompanha o clique", location.hash === "#de=2017");
+
+    limparFiltros();
+    return JSON.stringify(testes);
+})()`));
+
+// Um link com filtros, aberto do zero, já chega filtrado.
+await avaliar(`history.replaceState(null, "", "#de=2017&ate=2023&tipo=Fire&promos=1")`);
+await comando("Page.reload");
+let recarregou = false;
+for (let tentativa = 0; tentativa < 150 && !recarregou; tentativa++) {
+    await esperar(400);
+    recarregou = await avaliar(`typeof todasAsCartas !== "undefined" && todasAsCartas.length === ${TOTAL_ESPERADO} && !!graficoHpPorAno`).catch(() => false);
+}
+await esperar(800);
+interacoes.push({
+    nome: "endereço: link aberto do zero chega filtrado",
+    ok: await avaliar(`filtroAnoInicial.value === "2017" && filtroTipo.value === "Fire" && filtroPromos.checked
+        && kpiTotal.textContent === formatarNumero(obterCartasDoPainel().length)`),
+});
+await avaliar(`limparFiltros()`);
+
+const falhas = interacoes.filter((teste) => !teste.ok);
+problemas += falhas.length;
+console.log(`3. Interações: ${interacoes.length - falhas.length} de ${interacoes.length} testes passaram.`);
+falhas.forEach((teste) => console.log("   - falhou: " + teste.nome));
+
+// ==================================
+// 4. Todas as combinações de filtros (animação desligada, para ir rápido)
 // ==================================
 
 const varredura = JSON.parse(await avaliar(`(() => {
     Chart.defaults.animation = false;
     const tipos = [...filtroTipo.options].map((o) => o.value);
     const descritivos = ["Cartas impressas por ano", "HP médio por ano: normais × especiais", "De onde veio o ganho de HP",
-        "Raras por era", "Coleções com maior HP médio", "Perfil das eras", "% de Pokémon especiais por ano"];
-    const telas = { graficoCartasPorAno: 1, graficoHpPorAno: 2, graficoGanho: 3, graficoRaridade: 4, graficoColecoes: 5, graficoEras: 6, graficoEspeciais: 7 };
+        "Raras por era", "Coleções com maior HP médio", "HP médio × % de especiais por coleção",
+        "% de Pokémon especiais por ano"];
+    const telas = { graficoCartasPorAno: 1, graficoHpPorAno: 2, graficoGanho: 3, graficoRaridade: 4, graficoColecoes: 5, graficoBolhas: 6, graficoEspeciais: 7 };
     const textoDe = (el) => (el && !el.closest("[hidden]") ? el.textContent.replace(/\\s+/g, " ").trim() : "");
     const quebrados = [], titulosVelhos = [], anosFora = [];
     let combinacoes = 0;
@@ -229,7 +349,7 @@ const varredura = JSON.parse(await avaliar(`(() => {
 })()`));
 
 problemas += varredura.quebrados.length + varredura.titulosVelhos.length + varredura.anosFora.length;
-console.log(`3. ${varredura.combinacoes} combinações de filtros:`);
+console.log(`4. ${varredura.combinacoes} combinações de filtros:`);
 console.log(`   textos quebrados (NaN, Infinity, undefined, null): ${varredura.quebrados.length}`);
 console.log(`   gráfico vazio com título de conclusão: ${varredura.titulosVelhos.length}`);
 console.log(`   anos fora do período nos títulos 1 e 6: ${varredura.anosFora.length}`);

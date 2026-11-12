@@ -86,6 +86,15 @@
             <button type="button" class="botao-texto" id="botaoLimparFiltros" disabled>Limpar filtros</button>
         </section>
 
+        <!--Etiquetas dos filtros ativos: o × remove só aquele filtro (fora da gaveta, aparecem também no celular)-->
+        <div class="etiquetas" id="etiquetasFiltros" aria-live="polite">
+            <span class="etiquetas-rotulo" id="rotuloEtiquetas"></span>
+            <div class="etiquetas-lista" id="listaEtiquetas"></div>
+            <!--Copia o endereço com os filtros (#) para compartilhar esta visão-->
+            <button type="button" class="botao-texto botao-copiar" id="botaoCopiarLink" disabled>Copiar link desta visão</button>
+            <span class="aviso-copia" id="avisoCopia" role="status"></span>
+        </div>
+
         <!--Aviso de carregamento e de erro. aria-live faz o leitor de tela anunciar as mudanças-->
         <section class="aviso" id="aviso" aria-live="polite">
             <div class="aviso-linha">
@@ -144,7 +153,7 @@
                 <h2 class="capitulo-titulo" id="capitulo1">O HP subiu</h2>
                 <section class="cartao grafico grafico-largo" aria-labelledby="titulo2">
                     <h3 id="titulo2">HP médio por ano: normais × especiais</h3>
-                    <p class="grafico-subtitulo" id="subtitulo2">HP médio por ano, só Pokémon</p>
+                    <p class="grafico-subtitulo" id="subtitulo2">Linha · HP médio por ano, só Pokémon</p>
                     <div class="area-grafico alta">
                         <canvas id="graficoHpPorAno" hidden></canvas>
                         <p class="aguardando">Aguardando os dados</p>
@@ -153,7 +162,7 @@
 
                 <section class="cartao grafico grafico-largo" aria-labelledby="titulo5">
                     <h3 id="titulo5">Coleções com maior HP médio</h3>
-                    <p class="grafico-subtitulo" id="subtitulo5">HP médio dos Pokémon de cada coleção · mín. 50 Pokémon</p>
+                    <p class="grafico-subtitulo" id="subtitulo5">Barras horizontais · HP médio dos Pokémon de cada coleção · mín. 50 Pokémon</p>
                     <div class="area-grafico area-ranking">
                         <canvas id="graficoColecoes" hidden></canvas>
                         <p class="aguardando">Aguardando os dados</p>
@@ -166,7 +175,7 @@
                 <div class="grade-graficos">
                     <section class="cartao grafico" aria-labelledby="titulo7">
                         <h3 id="titulo7">% de cartas especiais por ano</h3>
-                        <p class="grafico-subtitulo">% dos Pokémon de cada ano que são especiais</p>
+                        <p class="grafico-subtitulo">Área · % dos Pokémon de cada ano que são especiais</p>
                         <div class="area-grafico">
                             <canvas id="graficoEspeciais" hidden></canvas>
                             <p class="aguardando">Aguardando os dados</p>
@@ -175,19 +184,23 @@
 
                     <section class="cartao grafico" aria-labelledby="titulo3">
                         <h3 id="titulo3">De onde veio o ganho de HP</h3>
-                        <p class="grafico-subtitulo">Ganho do HP médio dos Pokémon entre o primeiro e o último ano do período</p>
-                        <!--Pizza pequena e, ao lado, o número que conta a história-->
-                        <div class="ganho">
-                            <div class="area-grafico area-pizza">
-                                <canvas id="graficoGanho" hidden></canvas>
-                                <p class="aguardando">Aguardando os dados</p>
-                            </div>
-                            <div class="ganho-destaque" id="notaGanho" hidden>
-                                <p id="ganhoRotulo">Sem as especiais, a média do último ano seria</p>
-                                <p class="ganho-numero" id="ganhoSem">—</p>
-                                <p>e não <strong id="ganhoCom">—</strong></p>
-                            </div>
+                        <p class="grafico-subtitulo">Cascata · HP médio dos Pokémon: primeiro ano → + normais → + especiais → último ano</p>
+                        <div class="area-grafico">
+                            <canvas id="graficoGanho" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
                         </div>
+                        <p class="grafico-nota" id="notaGanho" hidden></p>
+                    </section>
+
+                    <section class="cartao grafico grafico-largo" aria-labelledby="titulo6">
+                        <h3 id="titulo6">HP médio × % de especiais por coleção</h3>
+                        <p class="grafico-subtitulo" id="subtitulo6">Bolhas · cada bolha é uma coleção</p>
+                        <div class="area-grafico alta">
+                            <canvas id="graficoBolhas" hidden></canvas>
+                            <p class="aguardando">Aguardando os dados</p>
+                        </div>
+                        <!--O r e a escala de cor (a única legenda do painel)-->
+                        <p class="grafico-nota" id="notaBolhas"></p>
                     </section>
                 </div>
             </section>
@@ -197,7 +210,7 @@
                 <div class="grade-graficos">
                     <section class="cartao grafico" aria-labelledby="titulo1">
                         <h3 id="titulo1">Cartas lançadas por ano</h3>
-                        <p class="grafico-subtitulo">Todas as cartas (Pokémon, Treinadores e Energias), com reimpressões e variantes</p>
+                        <p class="grafico-subtitulo">Colunas + linha · todas as cartas (Pokémon, Treinadores e Energias), com reimpressões e variantes · clique numa coluna para ver só aquela era</p>
                         <div class="area-grafico">
                             <canvas id="graficoCartasPorAno" hidden></canvas>
                             <p class="aguardando">Aguardando os dados</p>
@@ -206,38 +219,14 @@
 
                     <section class="cartao grafico" aria-labelledby="titulo4">
                         <h3 id="titulo4">Distribuição por faixa de raridade</h3>
-                        <p class="grafico-subtitulo">% de todas as cartas (Pokémon, Treinadores e Energias) · raras = Holo ou acima</p>
-                        <!--Duas roscas do mesmo tamanho: a primeira e a última era do filtro-->
-                        <div class="roscas">
-                            <figure class="rosca" id="roscaInicial">
-                                <figcaption class="rosca-titulo" id="tituloRoscaInicial">1999–2006</figcaption>
-                                <div class="area-grafico area-rosca">
-                                    <canvas id="graficoRaridade" hidden></canvas>
-                                    <p class="aguardando">Aguardando os dados</p>
-                                </div>
-                            </figure>
-                            <figure class="rosca" id="roscaRecente">
-                                <figcaption class="rosca-titulo" id="tituloRoscaRecente">2017–2023</figcaption>
-                                <div class="area-grafico area-rosca">
-                                    <canvas id="graficoRaridadeRecente" hidden></canvas>
-                                    <p class="aguardando">Aguardando os dados</p>
-                                </div>
-                            </figure>
-                        </div>
-                    </section>
-
-                    <section class="cartao grafico" aria-labelledby="titulo6">
-                        <h3 id="titulo6">Perfil das eras</h3>
-                        <p class="grafico-subtitulo">Quantas vezes cada valor da era recente é o da antiga · HP e % especiais: só Pokémon · cartas por ano e % raras: todas as cartas</p>
-                        <div class="area-grafico alta">
-                            <canvas id="graficoEras" hidden></canvas>
+                        <p class="grafico-subtitulo">Barras 100% empilhadas · % de todas as cartas de cada era (Pokémon, Treinadores e Energias) · raras = Holo ou acima · clique numa coluna para ver só aquela era</p>
+                        <div class="area-grafico">
+                            <canvas id="graficoRaridade" hidden></canvas>
                             <p class="aguardando">Aguardando os dados</p>
                         </div>
-                        <!--As cores das eras são explicadas aqui, no lugar da legenda-->
-                        <p class="grafico-nota" id="notaEras"></p>
                     </section>
 
-                    <section class="cartao achados" aria-labelledby="tituloAchados">
+                    <section class="cartao achados grafico-largo" aria-labelledby="tituloAchados">
                         <h3 id="tituloAchados">O que os dados mostram</h3>
                         <ul class="achados-lista" id="listaAchados">
                             <li class="aguardando">Aguardando os dados</li>
@@ -292,6 +281,15 @@
             <p>Tópicos Especiais em Informática · Fatec Lins</p>
         </footer>
     </div>
+
+    <!--Painel de detalhe de uma coleção (clique numa bolha ou numa barra do ranking)-->
+    <dialog class="painel-colecao" id="painelColecao" aria-labelledby="painelColecaoNome">
+        <div class="painel-colecao-topo">
+            <h2 id="painelColecaoNome">Coleção</h2>
+            <button type="button" class="botao-escuro" id="botaoFecharColecao">Fechar</button>
+        </div>
+        <dl class="painel-colecao-dados" id="painelColecaoDados"></dl>
+    </dialog>
 
     <!--Fundo escuro atrás da gaveta de filtros, no celular. Um toque nele fecha a gaveta-->
     <div class="fundo-gaveta" id="fundoGaveta" hidden></div>
