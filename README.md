@@ -107,7 +107,6 @@ dashboard-pokemon-tcg/
 │   ├── index.html            estrutura do dashboard
 │   ├── style.css             visual e responsividade
 │   └── script.js             consulta ao banco, KPIs, gráficos e filtros
-└── docs/                     evidências: prints do banco e das conferências (ver "Evidências")
 ```
 
 ## Tabela `cartas` no Supabase
@@ -269,15 +268,16 @@ recalculam a cada mudança.
 
 ## Evidências
 
-A pasta `docs/` reúne os prints usados na apresentação:
+Em vez de prints fixos, cada evidência é gerada na hora, rodando o script correspondente:
 
-- `docs/conferencia-tabela.png`, `docs/conferencia-rls.png`, `docs/conferencia-politica.png` e
-  `docs/conferencia-permissoes.png`: as 4 consultas de conferência de `scripts/criar_tabela.sql` no
-  SQL Editor do Supabase.
-- `docs/total-no-banco.png`: o fim de `scripts/02_limpeza_e_carga.py` com as 17.172 cartas no banco.
-- `docs/teste-escrita-bloqueada.png`: a saída de `scripts/03_teste_escrita_bloqueada.py` (erro 42501).
-- `docs/consistencia-painel.png`: o cartão de consistência do painel (17.172 × 17.172 × 17.172).
-- `docs/conferencia-tela.png`: a saída de `scripts/04_conferencia_python.py` (0 divergências).
+| O que se comprova | Como ver | Resultado esperado |
+|---|---|---|
+| Estrutura e segurança da tabela | As 4 consultas de conferência no fim de `scripts/criar_tabela.sql`, no SQL Editor do Supabase | 10 colunas (só `hp` aceita nulo); RLS ligado; 1 política de leitura para `anon`; `anon` só com SELECT |
+| Carga completa | `python scripts/02_limpeza_e_carga.py` | "Cartas no CSV: 17172", "Cartas no banco: 17172" e "Totais iguais" |
+| A chave pública não escreve | `python scripts/03_teste_escrita_bloqueada.py` | INSERT, UPDATE e DELETE bloqueados (erro 42501); 17.172 cartas antes e depois |
+| Paginação sem perdas | Cartão de consistência do dashboard | 17.172 no banco × 17.172 carregadas × 17.172 IDs únicos |
+| Números da tela corretos | `node scripts/04_conferencia_tela.mjs` e `python scripts/04_conferencia_python.py` | 3.242 checagens iguais, 0 divergências |
+| Nenhum filtro quebra a tela | `node scripts/05_varredura_filtros.mjs` | Nenhum problema nas 7.800 combinações |
 
 ## Limitações
 
