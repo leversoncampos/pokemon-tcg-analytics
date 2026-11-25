@@ -32,9 +32,11 @@ Valores do painel sem filtros, com as coleções de promos fora das contas (ver 
 - **Mais raridades:** as cartas raras foram de 21% para 40% do total, e as faixas Secreta/Ilustração
   foram de 0,8% para 10,0%.
 - **As 10 coleções com maior HP médio são todas de 2019 em diante.**
-- **Coleções com mais especiais têm HP médio maior, mesmo dentro de cada era:** r = 0,91 entre o %
-  de especiais e o HP médio das 110 coleções com 50 Pokémon ou mais (0,74, 0,91 e 0,83 dentro de
-  cada era). Os dados são consistentes com as especiais como causa, mas não provam.
+- **O HP de cada coleção acompanha a fatia de especiais:** r = 0,91 entre o % de especiais e o HP
+  médio das 110 coleções com 50 Pokémon ou mais. Parte dessa relação é automática, porque as
+  especiais têm HP alto e entram na própria média da coleção: com o HP só das cartas normais, o r cai
+  para 0,73 e, dentro de cada era, fica fraco (0,28, 0,48 e −0,03). O gráfico ilustra a composição
+  das coleções; não é uma prova de causa.
 - **Da era 1999–2006 para a 2017–2023, tudo cresceu, e as especiais, 5 vezes:** HP médio ×1,9,
   HP máximo ×1,7, cartas por ano ×2,4, % de raras ×1,9 e % de especiais ×5,2.
 - **A troca de editora não explica o aumento.** Em 2003, as cartas normais tinham 68,2 de HP na
@@ -51,7 +53,7 @@ embaixo, um subtítulo que começa pelo tipo do gráfico e diz a base da conta.
 | O HP subiu | Top 10 coleções por HP médio | **barras horizontais** (`bar`, `indexAxis: "y"`) | As 10 coleções mais fortes são todas de 2019 em diante |
 | Por quê | % de especiais por ano | **área** (`line` com `fill`) | E ficaram mais comuns: de 4% para até 32% dos Pokémon |
 | Por quê | Ganho de HP: 1º ano → normais → especiais → último ano | **cascata** (`bar` com barras flutuantes `[início, fim]`) | Dos 61,7 HP ganhos de 1999 a 2023, 33,6 (54%) vieram das especiais |
-| Por quê | Coleções: data × HP médio, tamanho = nº de Pokémon, cor = % de especiais | **bolhas** (`bubble`) | Coleções com mais especiais têm HP médio maior, mesmo dentro de cada era |
+| Por quê | Coleções: data × HP médio, tamanho = nº de Pokémon, cor = % de especiais | **bolhas** (`bubble`) | O HP de cada coleção acompanha a fatia de especiais |
 | O que mais mudou | Cartas impressas por ano e média de cada era | **colunas + linha** (misto `bar` + `line`) | A média de cartas impressas por ano mais que dobrou: 433 (1999–2006) → 1.059 (2017–2023) |
 | O que mais mudou | Raridade de cada era | **barras 100% empilhadas** (`bar`, `stacked`) | As raras foram de 21% para 40% das cartas, e metade delas são especiais |
 

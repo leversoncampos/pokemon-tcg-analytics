@@ -540,8 +540,8 @@ print(sensibilidade.loc[2003:].to_string())
 # 10. Hipótese 3: WOTC x TPCI
 # ==================================
 # Comparar editoras sem controlar o tempo engana: a TPCI publicou nos anos
-# mais recentes, quando tudo já tinha HP maior. Olhamos os mesmos indicadores
-# do gráfico-radar planejado e, depois, só as cartas normais.
+# mais recentes, quando tudo já tinha HP maior. Olhamos primeiro os indicadores
+# gerais de cada editora e, depois, só as cartas normais.
 
 titulo("10. PERFIL POR EDITORA (só Pokémon com HP)")
 

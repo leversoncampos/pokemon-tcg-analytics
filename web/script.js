@@ -1055,7 +1055,7 @@ function criarGraficoCartasPorAno(data) {
     const valores = Object.values(anos);
 
     // Título: média de cartas por ano da primeira e da última era do filtro.
-    // É a mesma base do radar e das linhas de média (uma só conta no dashboard).
+    // É a mesma base das linhas de média e do resumo final (uma só conta no dashboard).
     const extremas = obterErasExtremas(data);
 
     if (extremas === null) {
@@ -1359,9 +1359,10 @@ function calcularDecomposicao(resumo) {
 
     const parteEspeciais = ((ganhoTotal - (ultimo.hpNormais - primeiro.hpNormais)) / ganhoTotal) * 100;
 
-    // Fora de 0–100% (normais subiram mais que a média, por exemplo), uma pizza não representa a divisão.
+    // Fora de 0–100% (normais subiram mais que a média, por exemplo), não dá para
+    // dizer que fatia do ganho veio de cada grupo.
     if (parteEspeciais < 0 || parteEspeciais > 100) {
-        return { motivo: "Neste filtro, a divisão do ganho fica fora de 0–100% e não cabe numa pizza." };
+        return { motivo: "Neste filtro, a divisão do ganho fica fora de 0–100%." };
     }
 
     return { primeiro, ultimo, parteEspeciais };
@@ -1876,30 +1877,28 @@ function criarGraficoBolhas(data) {
 
     esconderMensagemDoGrafico("graficoBolhas");
 
-    // Correlação entre o % de especiais e o HP médio, no total e dentro de cada era.
+    // Correlação entre o % de especiais e o HP médio das coleções.
+    // Parte dela é automática: as especiais têm HP alto e entram na própria média
+    // da coleção. Por isso o título descreve a relação, sem falar em causa.
     const correlacao = bolhas.length >= MINIMO_DE_COLECOES_PARA_CORRELACAO
         ? calcularCorrelacao(bolhas.map((b) => b.pctEspeciais), bolhas.map((b) => b.hp))
         : null;
-    const porEra = ERAS
-        .map((era) => bolhas.filter((b) => Math.floor(b.x) >= era.inicio && Math.floor(b.x) <= era.fim))
-        .filter((daEra) => daEra.length >= MINIMO_DE_COLECOES_PARA_CORRELACAO)
-        .map((daEra) => calcularCorrelacao(daEra.map((b) => b.pctEspeciais), daEra.map((b) => b.hp)));
-    const emCadaEra = porEra.length >= 2 && porEra.every((r) => r !== null && r >= 0.5);
 
     if (correlacao === null) {
         definirTitulo("titulo6", "HP médio × % de especiais por coleção" +
             (bolhas.length < MINIMO_DE_COLECOES_PARA_CORRELACAO ? AVISO_AMOSTRA_PEQUENA : ""));
     } else if (correlacao >= 0.5) {
-        definirTitulo("titulo6", "Coleções com mais especiais têm HP médio maior" +
-            (emCadaEra ? ", mesmo dentro de cada era" : ""));
+        definirTitulo("titulo6", "O HP de cada coleção acompanha a fatia de especiais");
     } else {
         definirTitulo("titulo6", "HP médio × % de especiais por coleção");
     }
 
-    // Nota: o r e, no lugar da legenda, a escala de cor (a única do painel).
+    // Nota: o r (com o aviso de que parte dele é automática) e, no lugar da
+    // legenda, a escala de cor (a única do painel).
     const textoDoR = correlacao === null
         ? `Amostra pequena: ${bolhas.length} coleç${bolhas.length === 1 ? "ão" : "ões"}, sem correlação calculada. `
-        : `r = ${formatarDecimalCom(correlacao, 2)} entre o % de especiais e o HP médio (${bolhas.length} coleções). `;
+        : `r = ${formatarDecimalCom(correlacao, 2)} entre o % de especiais e o HP médio (${bolhas.length} coleções); ` +
+          "parte da relação é automática, pois as especiais entram na média. ";
     const escala = document.createElement("span");
     escala.className = "escala-laranja";
     escala.setAttribute("aria-hidden", "true");
@@ -2192,7 +2191,7 @@ function preencherAchados(data) {
 
     // Resumo final em até 3 linhas, sem repetir os títulos dos gráficos.
 
-    // 1. Por quê: a frase oficial (mesma divisão da pizza). Só vale acima de 50%.
+    // 1. Por quê: a frase oficial (mesma divisão da cascata). Só vale acima de 50%.
     const decomposicao = calcularDecomposicao(resumo);
 
     if (!decomposicao.motivo) {
@@ -2202,7 +2201,7 @@ function preencherAchados(data) {
             : criarAchado("Normais:", "explicam a maior parte do crescimento do HP neste filtro."))
     }
 
-    // 2. Quanto cada coisa cresceu da primeira à última era (a mensagem do antigo radar).
+    // 2. Quanto cada coisa cresceu da primeira à última era.
     const erasComPokemon = separarPorEra(data)
         .map((item) => ({ ...item, resumo: resumirTrecho(item.cartas) }))
         .filter((item) => item.resumo !== null);
@@ -2309,12 +2308,6 @@ const pluginRotulos = {
             }
 
             const estreito = chart.width < 500;
-
-            // Alguns rótulos só cabem em tela larga (ex.: valores do radar).
-            if (estreito && item.soEmTelaLarga) {
-                return;
-            }
-
             const texto = estreito && item.textoEstreito ? item.textoEstreito : item.texto;
             const linhas = Array.isArray(texto) ? texto : [texto];
 
@@ -2322,18 +2315,7 @@ const pluginRotulos = {
             ctx.font = fonteDasAnotacoes(700);
             ctx.fillStyle = item.cor;
 
-            if (item.paraOCentro) {
-                // Radar: o texto fica um pouco para dentro do ponto, na direção do centro.
-                const { xCenter, yCenter } = chart.scales.r;
-                const distancia = Math.hypot(xCenter - elemento.x, yCenter - elemento.y) || 1;
-                const passo = Math.min(18, distancia / 2);
-
-                ctx.textAlign = "center";
-                ctx.textBaseline = "middle";
-                ctx.fillText(linhas[0],
-                    elemento.x + ((xCenter - elemento.x) / distancia) * passo,
-                    elemento.y + ((yCenter - elemento.y) / distancia) * passo);
-            } else if (item.aDireita) {
+            if (item.aDireita) {
                 ctx.textAlign = "left";
                 ctx.textBaseline = "middle";
                 linhas.forEach((linha, indice) => {

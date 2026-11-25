@@ -649,17 +649,6 @@ select {
     display: none;
 }
 
-/* Cores das eras escritas na nota do radar, no lugar da legenda. */
-.cor-destaque {
-    color: var(--destaque);
-    font-weight: 700;
-}
-
-.cor-contexto {
-    color: var(--texto-suave);
-    font-weight: 700;
-}
-
 /* Escala de cor das bolhas: laranja claro (0%) → escuro (50% ou mais de especiais). */
 .escala-laranja {
     display: inline-block;
@@ -669,30 +658,6 @@ select {
     vertical-align: middle;
     background: linear-gradient(90deg, rgb(252, 227, 205), rgb(168, 79, 6));
 }
-
-/* Quadradinho de cor. O contorno fino deixa visível até o cinza mais claro. */
-.legenda-cor {
-    flex: none;
-    width: 12px;
-    height: 12px;
-    border-radius: 2px;
-    box-shadow: inset 0 0 0 1px rgba(31, 41, 55, 0.15);
-}
-
-/* Quadradinho dentro de uma frase (nota do radar). */
-.legenda-cor-texto {
-    display: inline-block;
-    margin-right: 4px;
-    vertical-align: -1px;
-}
-
-.legenda-texto {
-    margin-right: var(--espaco-3);
-    color: var(--texto);
-    font-weight: 600;
-}
-
-
 
 /* ===================================
    O que os dados mostram

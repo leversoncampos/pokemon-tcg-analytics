@@ -366,13 +366,7 @@ def conferir_combinacao(cartas, foto):
         if r is None:
             titulo = "HP médio × % de especiais por coleção" + AVISO_AMOSTRA_PEQUENA
         elif r >= 0.5:
-            por_era = []
-            for _, inicio, fim in ERAS:
-                da_era = bolhas[(bolhas.x.astype(int) >= inicio) & (bolhas.x.astype(int) <= fim)]
-                if len(da_era) >= 10:
-                    por_era.append(float(np.corrcoef(da_era.pct * 100, da_era.hp)[0, 1]))
-            em_cada_era = len(por_era) >= 2 and all(valor >= 0.5 for valor in por_era)
-            titulo = "Coleções com mais especiais têm HP médio maior" + (", mesmo dentro de cada era" if em_cada_era else "")
+            titulo = "O HP de cada coleção acompanha a fatia de especiais"
         else:
             titulo = "HP médio × % de especiais por coleção"
         conferir("título 6", titulo, textos["titulo6"])

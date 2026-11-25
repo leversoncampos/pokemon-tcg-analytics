@@ -335,7 +335,7 @@ const varredura = JSON.parse(await avaliar(`(() => {
             }
         }
 
-        // Anos citados nos títulos 1 e 6 (exceto o conjunto 1999–2023 de referência do radar)
+        // Anos citados nos títulos 1 e 6 devem estar dentro do período filtrado
         for (const id of ["titulo1", "titulo6"]) {
             const titulo = textoDe(document.getElementById(id)).replace(/conjunto \\d{4}–\\d{4}/, "");
             (titulo.match(/(19|20)\\d\\d/g) || []).forEach((ano) => {
