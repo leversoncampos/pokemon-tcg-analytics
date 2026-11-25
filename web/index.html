@@ -21,11 +21,13 @@
 
     <div class="pagina">
 
-        <!--Cabeçalho: a grande ideia em uma frase (Knaflic)-->
+        <!--Cabeçalho: a grande ideia em uma frase (Knaflic).
+            O período e a frase são calculados no script.js com os dados do banco;
+            o texto abaixo só aparece enquanto os dados carregam.-->
         <header class="topo">
             <div>
-                <p class="topo-assunto">Evolução do Pokémon TCG · 1999–2023</p>
-                <h1>Em 25 anos, o HP médio das cartas Pokémon quase dobrou, puxado principalmente pelas cartas especiais.</h1>
+                <p class="topo-assunto" id="assuntoTopo">Evolução do Pokémon TCG</p>
+                <h1 id="grandeIdeia">Evolução do HP das cartas Pokémon</h1>
             </div>
 
             <!--Só aparece no celular e no tablet, onde os filtros ficam numa gaveta-->

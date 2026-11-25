@@ -198,6 +198,22 @@ def conferir_combinacao(cartas, foto):
     for id_contador in ("contadorBanco", "contadorCarregadas", "contadorUnicos"):
         conferir(id_contador, float(TOTAL_NO_BANCO), numero(textos[id_contador]))
 
+    # Grande ideia (topo): sempre com todas as cartas sem promos, sem filtros
+    base = resumir_por_ano(cartas[~cartas.promo])
+    primeiro, ultimo = base[0], base[-1]
+    razao = ultimo["geral"] / primeiro["geral"]
+    variacao = ("mais que dobrou" if razao >= 2 else
+                "quase dobrou" if razao >= 1.9 else descrever_variacao(razao, True))
+    # Parte das especiais no ganho: o que passa da variação das normais
+    ganho = ultimo["geral"] - primeiro["geral"]
+    parte_especiais = (ganho - (ultimo["normais"] - primeiro["normais"])) / ganho * 100
+    quem = "especiais" if parte_especiais > 50 else "normais"
+    conferir("título da página",
+             f"Em {ultimo['ano'] - primeiro['ano'] + 1} anos, o HP médio das cartas Pokémon {variacao}, "
+             f"puxado principalmente pelas cartas {quem}.", textos["grandeIdeia"])
+    conferir("assunto do topo", f"Evolução do Pokémon TCG · {primeiro['ano']}–{ultimo['ano']}",
+             textos["assuntoTopo"])
+
     # Título 1: média de cartas por ano da primeira e da última era do filtro
     eras_com_cartas = separar_por_era(selecao)
     if len(selecao) == 0 or len(eras_com_cartas) < 2:

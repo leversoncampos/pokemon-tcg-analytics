@@ -440,6 +440,52 @@ function preencherLimitacoes() {
 }
 
 // ===================================
+// Grande ideia (título da página)
+// ===================================
+// Calculada uma vez, com todas as cartas sem promos (a mesma base da tela
+// inicial). Não muda com os filtros: ela resume o conjunto todo.
+
+function preencherGrandeIdeia() {
+    const semPromos = todasAsCartas.filter((carta) => !ehPromo(carta));
+    const resumo = resumirPorAno(semPromos);
+
+    if (resumo.length < 2) {
+        return;
+    }
+
+    const primeiro = resumo[0];
+    const ultimo = resumo[resumo.length - 1];
+    const anos = ultimo.ano - primeiro.ano + 1;
+    const razao = ultimo.hpGeral / primeiro.hpGeral;
+
+    // Mesma conta do KPI 3 (1º e último ano), escrita em palavras.
+    let variacao;
+
+    if (razao >= 2) {
+        variacao = "mais que dobrou";
+    } else if (razao >= 1.9) {
+        variacao = "quase dobrou";
+    } else {
+        variacao = descreverVariacao(razao, true);
+    }
+
+    // Quem puxou: a mesma divisão da cascata (gráfico 3).
+    const decomposicao = calcularDecomposicao(resumo);
+    let quemPuxou = "";
+
+    if (razao >= 1.02 && !decomposicao.motivo) {
+        quemPuxou = decomposicao.parteEspeciais > 50
+            ? ", puxado principalmente pelas cartas especiais"
+            : ", puxado principalmente pelas cartas normais";
+    }
+
+    document.getElementById("assuntoTopo").textContent =
+        `Evolução do Pokémon TCG · ${primeiro.ano}–${ultimo.ano}`;
+    document.getElementById("grandeIdeia").textContent =
+        `Em ${anos} anos, o HP médio das cartas Pokémon ${variacao}${quemPuxou}.`;
+}
+
+// ===================================
 // Filtros: valores padrão
 // ===================================
 
@@ -2965,6 +3011,7 @@ async function carregarDados() {
             mostrarGraficos();
             preencherOpcoesDosFiltros();
             preencherLimitacoes();
+            preencherGrandeIdeia();
             ativarFiltros();
             // Se o link trouxe filtros no endereço (#), eles valem desde o início.
             lerEndereco();

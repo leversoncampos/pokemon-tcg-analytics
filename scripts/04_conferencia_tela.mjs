@@ -87,7 +87,7 @@ const FOTOGRAFAR_TELA = `(combinacao) => {
         if (elemento.closest("[hidden]")) return "(oculto)";
         return elemento.textContent.replace(/\\s+/g, " ").trim();
     };
-    const ids = ["kpiTotal", "kpiHp", "kpiCrescimento", "notaCrescimento", "kpiEspeciais", "resumoFiltro",
+    const ids = ["assuntoTopo", "grandeIdeia", "kpiTotal", "kpiHp", "kpiCrescimento", "notaCrescimento", "kpiEspeciais", "resumoFiltro",
         "titulo1", "titulo2", "titulo3", "titulo4", "titulo5", "titulo6", "titulo7",
         "notaTotal", "notaGanho", "subtitulo2", "subtitulo5", "notaBolhas", "subtitulo6", "listaAchados",
         "contadorBanco", "contadorCarregadas", "contadorUnicos", "limiteData"];
