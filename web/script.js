@@ -1333,9 +1333,27 @@ function criarGraficoHpPorAno(data) {
 // 3 - De onde veio o ganho de HP (cascata)
 // ===================================
 
-// Divide o ganho de HP entre o primeiro e o último ano do período (o mesmo
-// período do KPI 3 e do topo). Sem especiais, a média seria a das normais;
-// o que passa disso vem das especiais.
+// Pontas do ganho de HP: o primeiro e o último ano com AMOSTRA_MINIMA Pokémon
+// ou mais (a mesma regra do gráfico 2). Sem filtros, são 1999 e 2023. Com um
+// tipo escolhido, 1999 costuma ter poucas cartas (Fogo: 15), e a conta começa
+// no primeiro ano com amostra suficiente. Devolve null se não houver 2 anos assim.
+function escolherPontasDoGanho(resumo) {
+    const comAmostra = resumo.filter((item) => item.pokemons >= AMOSTRA_MINIMA);
+
+    if (comAmostra.length < 2) {
+        return null;
+    }
+
+    return {
+        primeiro: comAmostra[0],
+        ultimo: comAmostra[comAmostra.length - 1],
+        // true quando a conta não começa ou não termina nas pontas do período
+        cortado: comAmostra[0] !== resumo[0] || comAmostra[comAmostra.length - 1] !== resumo[resumo.length - 1],
+    };
+}
+
+// Divide o ganho de HP entre as pontas do período (ver escolherPontasDoGanho).
+// Sem especiais, a média seria a das normais; o que passa disso vem das especiais.
 // Devolve { motivo } quando a divisão não faz sentido no filtro.
 function calcularDecomposicao(resumo) {
     const anosComAmbas = resumo.filter((item) => item.hpNormais !== null && item.hpEspeciais !== null);
@@ -1344,12 +1362,13 @@ function calcularDecomposicao(resumo) {
         return { motivo: "Para dividir o ganho, o filtro precisa de normais e especiais em pelo menos 2 anos." };
     }
 
-    const primeiro = resumo[0];
-    const ultimo = resumo[resumo.length - 1];
+    const pontas = escolherPontasDoGanho(resumo);
 
-    if (primeiro.pokemons < AMOSTRA_MINIMA || ultimo.pokemons < AMOSTRA_MINIMA) {
-        return { motivo: `Amostra pequena: menos de ${AMOSTRA_MINIMA} Pokémon no primeiro ou no último ano.`, amostraPequena: true };
+    if (pontas === null) {
+        return { motivo: `Amostra pequena: menos de 2 anos com ${AMOSTRA_MINIMA} Pokémon ou mais.`, amostraPequena: true };
     }
+
+    const { primeiro, ultimo } = pontas;
 
     const ganhoTotal = ultimo.hpGeral - primeiro.hpGeral;
 
@@ -1376,12 +1395,13 @@ function calcularCascata(resumo) {
         return { motivo: "Para medir o ganho, o filtro precisa de 2 anos ou mais com Pokémon." };
     }
 
-    const primeiro = resumo[0];
-    const ultimo = resumo[resumo.length - 1];
+    const pontas = escolherPontasDoGanho(resumo);
 
-    if (primeiro.pokemons < AMOSTRA_MINIMA || ultimo.pokemons < AMOSTRA_MINIMA) {
-        return { motivo: `Amostra pequena: menos de ${AMOSTRA_MINIMA} Pokémon no primeiro ou no último ano.`, amostraPequena: true };
+    if (pontas === null) {
+        return { motivo: `Amostra pequena: menos de 2 anos com ${AMOSTRA_MINIMA} Pokémon ou mais.`, amostraPequena: true };
     }
+
+    const { primeiro, ultimo, cortado } = pontas;
 
     if (primeiro.hpNormais === null || ultimo.hpNormais === null) {
         return { motivo: "Faltam cartas normais no primeiro ou no último ano para separar o ganho." };
@@ -1391,7 +1411,7 @@ function calcularCascata(resumo) {
     const normais = ultimo.hpNormais - primeiro.hpNormais;
 
     // Sem especiais, a média seria a das normais; o resto da diferença vem delas.
-    return { primeiro, ultimo, total, normais, especiais: total - normais };
+    return { primeiro, ultimo, cortado, total, normais, especiais: total - normais };
 }
 
 function criarGraficoGanho(data) {
@@ -1409,7 +1429,7 @@ function criarGraficoGanho(data) {
 
     esconderMensagemDoGrafico("graficoGanho");
 
-    const { primeiro, ultimo, total, normais, especiais } = cascata;
+    const { primeiro, ultimo, cortado, total, normais, especiais } = cascata;
 
     // Título-conclusão só quando houve ganho e as duas partes somam (nenhuma negativa).
     if (total > 0 && normais >= 0 && especiais >= 0) {
@@ -1420,7 +1440,9 @@ function criarGraficoGanho(data) {
     }
 
     nota.hidden = false;
-    nota.textContent = `Sem as especiais, a média de ${ultimo.ano} seria ${formatarDecimal(ultimo.hpNormais)} HP.`;
+    // Quando a conta não usa as pontas do período, a nota diz por quê.
+    nota.textContent = `Sem as especiais, a média de ${ultimo.ano} seria ${formatarDecimal(ultimo.hpNormais)} HP.` +
+        (cortado ? ` De ${primeiro.ano} a ${ultimo.ano}: anos com ${AMOSTRA_MINIMA} Pokémon ou mais.` : "");
 
     // Cada barra flutua: [onde começa, onde termina]. As das pontas saem do zero.
     const inicio = primeiro.hpGeral;

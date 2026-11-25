@@ -275,16 +275,18 @@ def conferir_combinacao(cartas, foto):
     # Gráfico 3: cascata — HP do 1º ano, + normais, + especiais, HP do último ano
     grafico = graficos["graficoGanho"]
     titulo = "De onde veio o ganho de HP"
+    # Pontas: 1º e último ano com 30+ Pokémon (mesma regra do gráfico 2).
     # Mesma ordem do painel: menos de 2 anos → amostra pequena → faltam normais.
+    com_amostra = [linha for linha in resumo if linha["pokemons"] >= AMOSTRA_MINIMA]
     if len(resumo) < 2:
         conferir("gráfico 3 vazio", None, grafico)
-    elif resumo[0]["pokemons"] < AMOSTRA_MINIMA or resumo[-1]["pokemons"] < AMOSTRA_MINIMA:
+    elif len(com_amostra) < 2:
         conferir("gráfico 3 vazio", None, grafico)
         titulo += AVISO_AMOSTRA_PEQUENA
-    elif resumo[0]["normais"] is None or resumo[-1]["normais"] is None:
+    elif com_amostra[0]["normais"] is None or com_amostra[-1]["normais"] is None:
         conferir("gráfico 3 vazio", None, grafico)
     else:
-        primeiro, ultimo = resumo[0], resumo[-1]
+        primeiro, ultimo = com_amostra[0], com_amostra[-1]
         total = ultimo["geral"] - primeiro["geral"]
         normais = ultimo["normais"] - primeiro["normais"]
         especiais = total - normais
