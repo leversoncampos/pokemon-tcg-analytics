@@ -226,7 +226,7 @@ python scripts/04_conferencia_python.py        # parte 2: refaz as contas e comp
   `conferencia-tela.json`, na pasta temporária do sistema. Também avisa se houver erro de JavaScript.
 - A parte 2 limpa o CSV com as mesmas funções de `02_limpeza_e_carga.py`, refaz cada conta com pandas
   e compara com a tela: KPIs, os dados dos 7 gráficos (inclusive cada bolha e a correlação r da
-  nota) e o texto dos títulos 1, 2, 3 e 6. O esperado é **3.186 checagens iguais, 0 divergências**.
+  nota) e o texto dos títulos 1, 2, 3 e 6. O esperado é **3.214 checagens iguais, 0 divergências**.
 - Opcional: a parte 1 também tira prints e diz se a página rola para o lado. Passe o arquivo de saída
   e pares de print e largura:
   `node scripts/04_conferencia_tela.mjs tela.json print-1920.png 1920 print-375.png 375`
@@ -251,7 +251,7 @@ na era). O esperado é "Nenhum problema encontrado."
 - O dashboard mostra o total de cartas no banco (`count: 'exact'`) ao lado do total carregado pela
   paginação: 17.172 × 17.172.
 - Os valores da tela são conferidos contra um cálculo independente em Python, a partir do CSV, em
-  14 combinações de filtros: 3.186 checagens, 0 divergências (ver "Conferir os números da tela").
+  14 combinações de filtros: 3.214 checagens, 0 divergências (ver "Conferir os números da tela").
 - `scripts/05_varredura_filtros.mjs` aplica todas as 7.800 combinações de filtros (cada par De/Até ×
   cada tipo × promos) e não encontra texto quebrado, título errado em gráfico vazio nem erro na página;
   as 22 checagens de interação passam.
