@@ -18,12 +18,6 @@ __pycache__/
 dados/*.csv
 
 # ==================================
-# Arquivos de uso interno da dupla
-# ==================================
-referencias/enunciado-trabalho.pdf
-referencias/codigo-professor/
-
-# ==================================
 # Arquivos temporários de teste
 # ==================================
 tmp/

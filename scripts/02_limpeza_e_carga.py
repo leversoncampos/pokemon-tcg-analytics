@@ -1,7 +1,7 @@
 # ==================================
-# FASE 3 - LIMPEZA E CARGA NO SUPABASE
+# LIMPEZA E CARGA NO SUPABASE
 # ==================================
-# Lê o CSV original, aplica as regras aprovadas (ver README.md), valida o
+# Lê o CSV original, aplica as regras de limpeza (ver README.md), valida o
 # resultado e envia as cartas para a tabela "cartas" do Supabase.
 #
 # O CSV original nunca é alterado: toda a limpeza acontece em memória.
@@ -42,7 +42,7 @@ NOME_TABELA = "cartas"
 # exatamente onde a carga parou.
 TAMANHO_LOTE = 500
 
-# Lista final aprovada na Fase 1. O V-UNION entrou por ter HP alto; Prime, Star,
+# Lista definida na exploração (01_exploracao.py). O V-UNION entrou por ter HP alto; Prime, Star,
 # SP, Radiant e Prism Star ficaram fora por terem HP modesto.
 SUBTIPOS_ESPECIAIS = {
     "EX", "ex", "GX", "V", "VMAX", "VSTAR", "TAG TEAM",
@@ -122,7 +122,7 @@ def ler_csv():
 # cartas foram afetadas, para que a limpeza possa ser comprovada.
 
 def limpar(original):
-    """Aplica as regras aprovadas e devolve uma tabela com as 10 colunas."""
+    """Aplica as regras de limpeza e devolve uma tabela com as 10 colunas."""
     titulo("2. LIMPEZA")
 
     # Trabalhamos numa cópia para manter o original intacto e poder comparar
@@ -184,7 +184,7 @@ def limpar(original):
     df["supertipo"] = df["supertype"].map(TRADUCAO_SUPERTIPO)
     df = df.rename(columns={"name": "nome", "publisher": "editora"})
 
-    # Decisão da Fase 1: nenhuma carta é excluída. As 1.100 promos ficam no
+    # Decisão da exploração: nenhuma carta é excluída. As 1.100 promos ficam no
     # banco, e quem as esconde é o filtro "Incluir promos" do dashboard.
     promos = df["set"].str.contains("Black Star Promos").sum()
     print(f"Promos mantidas no banco:                   {promos}")

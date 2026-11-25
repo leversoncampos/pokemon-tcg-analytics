@@ -141,7 +141,7 @@ def separar_por_era(selecao):
 
 
 # ==================================
-# 3. Filtros e resumos (regras do CLAUDE.md, refeitas em pandas)
+# 3. Filtros e resumos (as mesmas regras do dashboard, refeitas em pandas)
 # ==================================
 
 def filtrar(cartas, filtro):

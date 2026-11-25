@@ -1,5 +1,5 @@
 -- ==================================
--- FASE 2 - TABELA "cartas" E SEGURANÇA
+-- TABELA "cartas" E SEGURANÇA
 -- ==================================
 -- Cria a tabela do projeto e define quem pode fazer o quê com ela.
 -- Rodar uma única vez no SQL Editor do Supabase, ANTES da carga em Python.
@@ -17,7 +17,7 @@ begin;
 -- ==================================
 -- 1. Criação da tabela
 -- ==================================
--- São 10 colunas, dentro da regra de 8 a 10 do enunciado: identificadores
+-- São 10 colunas, dentro da faixa de 8 a 10 pedida no trabalho: identificadores
 -- (id, nome), categorias (supertipo, tipo, raridade, colecao, editora,
 -- especial), número (hp) e data (data_lancamento).
 --
@@ -42,8 +42,7 @@ create table if not exists public.cartas (
     -- ==================================
     -- As regras da limpeza valem também no banco: se o script Python tiver
     -- um erro, a carga falha com uma mensagem clara, em vez de gravar um dado
-    -- errado que só apareceria depois, em um gráfico. Isso ajuda a comprovar
-    -- a consistência dos dados, que é um critério de avaliação.
+    -- errado que só apareceria depois, em um gráfico.
 
     -- Só valores traduzidos e conhecidos. Barra 'Trainer', por exemplo.
     constraint cartas_supertipo_valido

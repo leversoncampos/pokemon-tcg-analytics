@@ -1,8 +1,8 @@
 # ==================================
-# FASE 1 - EXPLORAÇÃO DOS DADOS
+# EXPLORAÇÃO DOS DADOS
 # ==================================
 # Objetivo: conhecer o CSV ANTES de limpar ou carregar qualquer coisa.
-# Toda decisão da limpeza (Fase 3) precisa ter uma evidência aqui.
+# Toda decisão da limpeza (02_limpeza_e_carga.py) precisa ter uma evidência aqui.
 #
 # Este script SÓ LÊ o CSV: não altera o original, não grava arquivos
 # e não acessa o Supabase. Pode ser rodado quantas vezes for preciso.
@@ -210,7 +210,7 @@ print(contagem_com_percentual(df["rarity"]).to_string())
 # 6. Conferência dos problemas de qualidade conhecidos
 # ==================================
 # Cada item abaixo testa um problema já listado, com um número que comprova.
-# Assim a limpeza da Fase 3 ataca o que existe, não o que supomos existir.
+# Assim a limpeza ataca o que existe, não o que supomos existir.
 
 titulo("6. CONFERÊNCIA DOS PROBLEMAS JÁ LISTADOS")
 
@@ -262,7 +262,7 @@ print(f"Após normalizar maiúsculas/espaços: {normalizadas}")
 # ==================================
 # A lista inicial de problemas traz o que já se conhecia. Aqui testamos o que ainda NÃO foi
 # verificado, porque um dado errado passa despercebido até virar um gráfico
-# errado na frente do professor.
+# errado.
 
 titulo("7. AUDITORIA: PROBLEMAS NÃO LISTADOS")
 

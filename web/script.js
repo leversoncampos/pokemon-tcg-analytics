@@ -634,23 +634,6 @@ function aoMudarEndereco() {
     aplicarFiltros();
 }
 
-// Copia o endereço atual (com os filtros) para colar em outro lugar.
-async function copiarLink() {
-    const aviso = document.getElementById("avisoCopia");
-
-    try {
-        await navigator.clipboard.writeText(location.href);
-        aviso.textContent = "Link copiado";
-    } catch {
-        // Sem permissão para a área de transferência: o endereço continua na barra do navegador.
-        aviso.textContent = "Copie o endereço da barra do navegador";
-    }
-
-    setTimeout(() => {
-        aviso.textContent = "";
-    }, 2500);
-}
-
 // ===================================
 // Filtros: etiquetas dos filtros ativos
 // ===================================
@@ -809,9 +792,6 @@ function ativarFiltros() {
     document.getElementById("botaoFecharColecao").addEventListener("click", () => {
         document.getElementById("painelColecao").close();
     });
-    const botaoCopiar = document.getElementById("botaoCopiarLink");
-    botaoCopiar.disabled = false;
-    botaoCopiar.addEventListener("click", copiarLink);
 }
 
 // ===================================
@@ -2927,7 +2907,7 @@ async function buscarTodasAsCartas(cliente, totalNoBanco) {
         // Adicionar registros
         // ===================================
         // O push acrescenta ao array existente. Criar um array novo a cada
-        // bloco, como no código de exemplo, copiaria tudo de novo a cada volta.
+        // bloco ([...antigas, ...novas]) copiaria tudo de novo a cada volta.
 
         todasAsCartas.push(...data);
 

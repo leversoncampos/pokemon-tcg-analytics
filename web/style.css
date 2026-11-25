@@ -405,16 +405,6 @@ select {
     border-color: var(--texto);
 }
 
-/* "Copiar link" fica na ponta direita da linha das etiquetas. */
-.botao-copiar {
-    margin-left: auto;
-}
-
-.aviso-copia {
-    color: var(--texto-suave);
-    font-size: var(--f-14);
-}
-
 .etiqueta-remover {
     color: var(--texto-suave);
     font-size: var(--f-16);

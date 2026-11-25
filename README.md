@@ -66,7 +66,7 @@ Toda interação só muda os filtros e chama `aplicarFiltros()`: os 7 gráficos 
 sempre se recalculam juntos.
 
 - **Etiquetas dos filtros ativos** ("Período: 2017–2023 ×"): o × remove só aquele filtro.
-- **Filtros no endereço (#)**, com o botão "Copiar link desta visão". Exemplos: `#promos=1`,
+- **Filtros no endereço (#)**: a visão escolhida fica no link da página. Exemplos: `#promos=1`,
   `#de=2017`, `#tipo=Water`. Cada valor é conferido contra as opções dos próprios campos; valores
   inválidos são ignorados e nada do endereço entra na página como HTML.
 - **Clique numa coleção** (bolha ou barra do ranking): abre um painel com data, nº de Pokémon, HP
@@ -92,7 +92,9 @@ dashboard-pokemon-tcg/
 ├── README.md
 ├── requirements.txt          bibliotecas Python
 ├── .env.example              modelo do arquivo de credenciais
-├── dados/                    o CSV do Kaggle fica aqui (não vai para o git)
+├── dados/
+│   ├── dicionario-de-dados.txt       descrição das colunas do CSV original (Kaggle)
+│   └── (CSV do Kaggle)               baixado à parte; não vai para o git
 ├── scripts/
 │   ├── 01_exploracao.py              exploração e relatório de qualidade dos dados
 │   ├── criar_tabela.sql              tabela "cartas", RLS e permissões
@@ -105,9 +107,7 @@ dashboard-pokemon-tcg/
 │   ├── index.html            estrutura do dashboard
 │   ├── style.css             visual e responsividade
 │   └── script.js             consulta ao banco, KPIs, gráficos e filtros
-├── docs/                     material da apresentação e evidências (ver "Evidências")
-└── referencias/
-    └── dicionario-de-dados.txt
+└── docs/                     evidências: prints do banco e das conferências (ver "Evidências")
 ```
 
 ## Tabela `cartas` no Supabase
